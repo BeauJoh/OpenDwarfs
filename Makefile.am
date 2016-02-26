@@ -20,13 +20,23 @@ device_n = 0
 device_t = 0
 
 bin_PROGRAMS += ocd
-ocd_SOURCES = include/common_args.c include/rdtsc.c
+ocd_SOURCES = include/common_args.c include/rdtsc.c include/lsb.h
 ocd_LINK = true
 
 noinst_LIBRARIES = libopts.a
 libopts_a_SOURCES = opts/opts.c 
 
 LDADD = include/common_args.o include/rdtsc.o libopts.a
+
+#to use libscibench for timing:
+#build libscibench from the git repository:
+##git clone https://github.com/SalvatoreDiGirolamo/liblsb.git
+##cd liblsb
+##./configure --prefix=$(pwd)/build/ --without-mpi --without-papi
+#and rename the build directory to libscibench and place it in the top level of
+#the OpenDwarf directory
+#finally configure with the following argument:
+##../configure --enable-libscibench
 
 if build_gem
 include n-body-methods/gem/Makefile.mk
@@ -146,19 +156,19 @@ define run_dwarf_test
 	./srad -p $(platform_n) -d $(device_n) -t $(device_t) -- 256 256 0 127 0 127 0.5 2; \
 	elif [ $(1) = "lud" ]; then \
 	echo "Running lud..."; \
-	./lud -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/dense-linear-algebra/lud/512.dat; \
+	./lud -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/dense-linear-algebra/lud/3072.dat; \
 	elif [ $(1) = "kmeans" ]; then \
 	echo "Running kmeans..."; \
 	./kmeans -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/dense-linear-algebra/kmeans/204800.txt; \
 	elif [ $(1) = "fft" ]; then \
 	echo "Running fft..."; \
 	./clfft -p $(platform_n) -d $(device_n) -t $(device_t) -- --pts 1; \
-	##elif [ $(1) = "csr" ]; then \
-	##echo "Running csr..."; \
-	##./csr -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/sparse-linear-algebra/SPMV/csr_65536.txt; \
-	##elif [ $(1) = "crc" ]; then \
-	##echo "Running crc..."; \
-	##./crc -p $(platform_n) -d $(device_n) -t $(device_t) --; \
+	elif [ $(1) = "csr" ]; then \
+	echo "Running csr..."; \
+	./csr -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/sparse-linear-algebra/SPMV/csr_65536.txt; \
+	elif [ $(1) = "crc" ]; then \
+	echo "Running crc..."; \
+	./crc -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/combinational-logic/crc/crc_1000x8192.txt; \
 	elif [ $(1) = "cfd" ]; then \
 	echo "Running cfd..."; \
 	./cfd -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/unstructured-grids/cfd/fvcorr.domn.097K; \

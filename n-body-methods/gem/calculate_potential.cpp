@@ -30,6 +30,8 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
+
 #define AOCL_ALIGNMENT 64
 
 #ifdef __FPGA__
@@ -146,6 +148,7 @@ void calc_potential_single_step(residue *residues,
 	cl_int errcode;
 	ocd_initCL();
 
+    LSB_Init("gem", 0);
 	/////////////////////////////////////////////////////////////////
 	// Load CL file, build CL program object, create CL kernel object
 	/////////////////////////////////////////////////////////////////
@@ -170,7 +173,8 @@ void calc_potential_single_step(residue *residues,
 	}
 
 */
-
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 	/* create a cl program executable for all the devices specified */
 	//status = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
 	char* kernel_files;
@@ -208,8 +212,10 @@ void calc_potential_single_step(residue *residues,
 		std::cout<<"Error: Creating Kernel from program. (clCreateKernel)\n";
 		exit(-1);
 	}
+    LSB_Rec(0);
 
-
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
 	init_time();
 
 	eye = *i;
@@ -352,6 +358,10 @@ void calc_potential_single_step(residue *residues,
 	atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[16]);
 */
 
+    LSB_Rec(0);
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
+
 	res_c_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA, sizeof(cl_float)*nres,    NULL, &err[0]);
 	res_x_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*nres,    NULL, &err[1]);
 	res_y_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nres,    NULL, &err[2]);
@@ -369,8 +379,10 @@ void calc_potential_single_step(residue *residues,
 	vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[14]);
 	atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_int)*nres,      NULL, &err[15]);
 	atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_int)*nres,      NULL, &err[16]);
-
-
+    
+    LSB_Rec(0);
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	clEnqueueWriteBuffer ( commands, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
@@ -439,6 +451,11 @@ void calc_potential_single_step(residue *residues,
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Length Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
+
+    LSB_Rec(0);
+    LSB_Set_Rparam_string("region", "setting_kernel_arguments");
+    LSB_Res();
+
 	// clSetKernelArg( kernel, 0, sizeof(cl_mem), (void *)&outputBuffer);
 	clSetKernelArg( kernel, 0, sizeof(cl_int), (void *)&    nres);// int nres,
 	clSetKernelArg( kernel, 1, sizeof(cl_int), (void *)&    nvert);// int nvert,
@@ -516,10 +533,13 @@ void calc_potential_single_step(residue *residues,
 		return;
 	}
 
+    LSB_Rec(0);
+    LSB_Set_Rparam_string("region", "gem_kernel");
 
 	for (;  eye/*+((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS)*/ < bound; eye+=((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS))
 		//for(it=0; it<3; it++)
 	{
+        LSB_Res();
 		clSetKernelArg( kernel, 9, sizeof(cl_int), (void *)&    eye);// int eye,
 		fprintf(stdout,"finished first %d of %d\n", eye, nvert);
 		/* copy the vert data of the current block to device */
@@ -556,9 +576,12 @@ void calc_potential_single_step(residue *residues,
 		if(eye + step_size > bound)
 			step_size = bound - eye;
 
-
+        LSB_Rec(eye);
 		/* copy back the calculation result */
 	}
+
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 
 	if(eye > bound)
 		eye = bound;
@@ -595,8 +618,10 @@ void calc_potential_single_step(residue *residues,
 	}
 
 	clFinish(commands);
-	printf("runtime:%llu\n", get_time());
+    LSB_Rec(0);
 
+	printf("runtime:%llu\n", get_time());
+    LSB_Finalize();
 
 	for(it = 0; it < nvert; it++)
 	{

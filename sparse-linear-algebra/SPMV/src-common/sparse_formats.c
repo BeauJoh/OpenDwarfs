@@ -261,17 +261,17 @@ coo_matrix rand_coo(const unsigned int N,const unsigned long density, FILE* log)
 }
 
 void print_coo_metadata(const coo_matrix* coo, FILE* stream) {
-	fprintf(stream,"\nCOO Matrix Metadata:\n\nNRows=%d\tNCols=%d\tNNZ=%d\tDensity (ppm)=%d\tDensity (fract)=%g\n\n",coo->num_rows,coo->num_cols,coo->num_nonzeros,coo->density_ppm,(double)(coo->density_ppm/1000000.0));
+	fprintf(stream,"\nCOO Matrix Metadata:\n\nNRows=%d\tNCols=%d\tNNZ=%d\tDensity (ppm)=%zu\tDensity (fract)=%g\n\n",coo->num_rows,coo->num_cols,coo->num_nonzeros,coo->density_ppm,(double)(coo->density_ppm/1000000.0));
 }
 
 void print_csr_metadata(const csr_matrix* csr, FILE* stream) {
-	fprintf(stream,"\nCSR Matrix Metadata:\n\nNRows=%lu\tNCols=%lu\tNNZ=%lu\tDensity=%lu ppm = %g%%\tAverage NZ/Row=%g\tStdDev NZ/Row=%g\n\n",csr->num_rows,csr->num_cols,csr->num_nonzeros,csr->density_ppm,csr->density_perc,csr->nz_per_row,csr->stddev);
+	fprintf(stream,"\nCSR Matrix Metadata:\n\nNRows=%d\tNCols=%d\tNNZ=%d\tDensity=%d ppm = %g%%\tAverage NZ/Row=%g\tStdDev NZ/Row=%g\n\n",csr->num_rows,csr->num_cols,csr->num_nonzeros,csr->density_ppm,csr->density_perc,csr->nz_per_row,csr->stddev);
 }
 
 void print_coo(const coo_matrix* coo, FILE* stream)
 {
 	unsigned int ind;
-	fprintf(stream,"\nPrinting COO Matrix in COO Form:\n\nNRows=%d\nNCols=%d\nNNZ=%d\nDensity (ppm)=%d\nDensity (fract)=%g\n",coo->num_rows,coo->num_cols,coo->num_nonzeros,coo->density_ppm,(double)(coo->density_ppm/1000000.0));
+	fprintf(stream,"\nPrinting COO Matrix in COO Form:\n\nNRows=%d\nNCols=%d\nNNZ=%d\nDensity (ppm)=%zu\nDensity (fract)=%g\n",coo->num_rows,coo->num_cols,coo->num_nonzeros,coo->density_ppm,(double)(coo->density_ppm/1000000.0));
 	for(ind=0; ind<coo->num_nonzeros; ind++)
 		fprintf(stream,"(%2d,%2d,%5.2f)\n",coo->non_zero[ind].i,coo->non_zero[ind].j,coo->non_zero[ind].v);
 }
@@ -281,7 +281,7 @@ void print_coo_std(const coo_matrix* coo,FILE* stream)
 	int ind,ind2,nz_count=0;
 	float val;
 
-	fprintf(stream,"\nPrinting COO Matrix in Standard Form:\n\nNRows=%d\nNCols=%d\nNNZ=%d\nDensity (ppm)=%d\nDensity (fract)=%g\n",coo->num_rows,coo->num_cols,coo->num_nonzeros,coo->density_ppm,(double)(coo->density_ppm/1000000.0));
+	fprintf(stream,"\nPrinting COO Matrix in Standard Form:\n\nNRows=%d\nNCols=%d\nNNZ=%d\nDensity (ppm)=%zu\nDensity (fract)=%g\n",coo->num_rows,coo->num_cols,coo->num_nonzeros,coo->density_ppm,(double)(coo->density_ppm/1000000.0));
 
 	for(ind=0; ind<coo->num_rows; ind++)
 	{

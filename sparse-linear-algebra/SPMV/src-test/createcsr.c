@@ -6,6 +6,7 @@
 #include<sys/types.h>
 #include<unistd.h>
 #include<getopt.h>
+#include<math.h>
 
 #define CSR_NAME_MAX_LENGTH 256
 
@@ -112,7 +113,7 @@ int main(int argc, char** argv)
 			t = time(NULL);
 			tm = *localtime(&t);
 			normal_stddev_rounded = (int) round(normal_stddev * 100);
-			snprintf(file_path,(sizeof(char)*CSR_NAME_MAX_LENGTH),"../test/sparse-linear-algebra/SPMV/csrmatrix_R%u_N%lu_D%lu_S%02d_%d-%d-%d-%d-%d",num_matrices,N,density,normal_stddev_rounded,(tm.tm_year-100),tm.tm_mon+1,tm.tm_mday,tm.tm_hour,tm.tm_min);
+			snprintf(file_path,(sizeof(char)*CSR_NAME_MAX_LENGTH),"../test/sparse-linear-algebra/SPMV/csrmatrix_R%u_N%d_D%d_S%02d_%d-%d-%d-%d-%d",num_matrices,N,density,normal_stddev_rounded,(tm.tm_year-100),tm.tm_mon+1,tm.tm_mday,tm.tm_hour,tm.tm_min);
 			free_file=1;
 		}
 		printf("Saving Matrix to File '%s'...\n\n",file_path);

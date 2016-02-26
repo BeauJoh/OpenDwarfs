@@ -112,16 +112,16 @@ void simpleNamePrint()
         if (curr->times[0] > 0)
         {
         	if (strcmp(curr->string, rootStr) != 0) // if the string isn't empty
-        		printf("Timer [%s]: \t %llu\n", curr->string, curr->times[0]);
+        		printf("Timer [%s]: \t %zu\n", curr->string, curr->times[0]);
         	else
-        		printf("Unnamed Timers: \t %llu\n", curr->times[0]);
+        		printf("Unnamed Timers: \t %zu\n", curr->times[0]);
 
-			if (curr->times[1] > 0) printf("\tD2H:    \t %llu\n", curr->times[1]);
-			if (curr->times[2] > 0) printf("\tH2D:    \t %llu\n", curr->times[2]);
-			if (curr->times[3] > 0) printf("\tD2D:    \t %llu\n", curr->times[3]);
-			if (curr->times[4] > 0) printf("\tKernel: \t %llu\n", curr->times[4]);
-			if (curr->times[5] > 0) printf("\tHost:   \t %llu\n", curr->times[5]);
-			if (curr->times[6] > 0) printf("\tDual:   \t %llu\n", curr->times[6]);
+			if (curr->times[1] > 0) printf("\tD2H:    \t %zu\n", curr->times[1]);
+			if (curr->times[2] > 0) printf("\tH2D:    \t %zu\n", curr->times[2]);
+			if (curr->times[3] > 0) printf("\tD2D:    \t %zu\n", curr->times[3]);
+			if (curr->times[4] > 0) printf("\tKernel: \t %zu\n", curr->times[4]);
+			if (curr->times[5] > 0) printf("\tHost:   \t %zu\n", curr->times[5]);
+			if (curr->times[6] > 0) printf("\tDual:   \t %zu\n", curr->times[6]);
         }
         curr = curr->next;
     }

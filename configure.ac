@@ -25,6 +25,11 @@ AC_CONFIG_HEADER(config.h)
 # remaining tests behave
 PAC_ARG_STRICT
 
+PAC_APPEND_FLAG([--std=gnu89],[CFLAGS])
+PAC_APPEND_FLAG([-fgnu89-inline],[CFLAGS])
+PAC_APPEND_FLAG([-lm],[LIBS])
+
+#AC_PROG_CC_C89
 AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P
@@ -38,7 +43,6 @@ PAC_C_GNU_ATTRIBUTE
 PAC_CC_FUNCTION_NAME_SYMBOL
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
-
 
 ### The OpenCL SDK allows us to build some additional applications
 
@@ -146,6 +150,28 @@ if test "${found_sdkutil}" = "no" ; then
    PAC_POP_FLAG([LIBS])
 fi
 AC_LANG_POP([C++])
+
+### Do we use libscibench for timing instead? by default not 
+AC_ARG_WITH([libscibench],
+            AS_HELP_STRING([--with-libscibench],[path to libscibench]), [LIBSCIBENCH_PREFIX=$withval],[LIBSCIBENCH_PREFIX=])
+if test ! -z "$LIBSCIBENCH_PREFIX" ; then
+   PAC_APPEND_FLAG([-I${LIBSCIBENCH_PREFIX}/include],[CPPFLAGS])
+   PAC_APPEND_FLAG([-L${LIBSCIBENCH_PREFIX}/lib],[LDFLAGS])
+   PAC_APPEND_FLAG([-Wl,-rpath=${LIBSCIBENCH_PREFIX}/lib],[LDFLAGS])
+   PAC_APPEND_FLAG([-llsb],[LIBS])
+   PAC_APPEND_FLAG([-DTIME_WITH_LIBSCIBENCH],[CPPFLAGS])
+   AC_MSG_RESULT([using LibSciBench ... -I${LIBSCIBENCH_PREFIX}/include -L${LIBSCIBENCH_PREFIX}/lib])
+fi
+
+AC_ARG_WITH([papi],
+            AS_HELP_STRING([--with-papi],[path to papi]), [LIBPAPI_PREFIX=$withval],[LIBPAPI_PREFIX=])
+if test ! -z "$LIBPAPI_PREFIX" ; then
+   PAC_APPEND_FLAG([-I${LIBPAPI_PREFIX}/include],[CPPFLAGS])
+   PAC_APPEND_FLAG([-L${LIBPAPI_PREFIX}/lib],[LDFLAGS])
+   PAC_APPEND_FLAG([-Wl,-rpath=${LIBPAPI_PREFIX}/lib],[LDFLAGS])
+   PAC_APPEND_FLAG([-lpapi],[LIBS])
+   AC_MSG_RESULT([using papi ... -I${LIBPAPI_PREFIX}/include -L${LIBPAPI_PREFIX}/lib])
+fi
 
 
 ### Check what applications the user wants us to build
@@ -281,6 +307,7 @@ done
 AC_ARG_ENABLE([timing],
 	AS_HELP_STRING([--disable-timing], [Disable automatic macro-based timing (enabled by default)]),	, AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
 )
+
 
 
 AC_MSG_RESULT([building applications... ${selected_apps}])

@@ -29,11 +29,6 @@ extern "C" {
 #endif
 #include <stdio.h>
 
-
-#include "config.h"
-
-
-
 extern cl_event ocdTempEvent;
 
 #ifdef ENABLE_TIMER
@@ -235,13 +230,13 @@ temp->endtime = 1000 * (t->timer.tv_sec*1000000L + t->timer.tv_usec);\
 #define OCD_PRINT_TIMERS {printf("********************************************************************************\n"\
 "OCD Core Timers (nanoseconds)\n"\
 "********************************************************************************\n"\
-"Total Execution Time:  \t[%llu]\n"\
-"\tHost to Device Time:   [%llu]\n"\
-"\tDevice to Host Time:   [%llu]\n"\
-"\tDevice to Device Time: [%llu]\n"\
-"\tDevice Kernel Time:    [%llu]\n"\
-"\tUser Timer Total:      [%llu]\n"\
-"\tComposed Timer Total:  [%llu]\n"\
+"Total Execution Time:  \t[%zd]\n"\
+"\tHost to Device Time:   [%zd]\n"\
+"\tDevice to Host Time:   [%zd]\n"\
+"\tDevice to Device Time: [%zd]\n"\
+"\tDevice Kernel Time:    [%zd]\n"\
+"\tUser Timer Total:      [%zd]\n"\
+"\tComposed Timer Total:  [%zd]\n"\
 "********************************************************************************\n"\
 ,TOTAL_EXEC, TOTAL_H2D, TOTAL_D2H, TOTAL_D2D, TOTAL_KERNEL, TOTAL_HOST, TOTAL_DUAL);}
 

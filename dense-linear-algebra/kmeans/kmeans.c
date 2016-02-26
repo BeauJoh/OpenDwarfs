@@ -79,6 +79,7 @@
 #include <omp.h>
 #include "kmeans.h"
 #include <malloc.h>
+#include <unistd.h>
 #include "../../include/common_args.h"
 
 #define AOCL_ALIGNMENT 64

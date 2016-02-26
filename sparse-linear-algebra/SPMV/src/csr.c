@@ -340,7 +340,7 @@ int main(int argc, char** argv)
 			kernel = clCreateKernel(program, "csr", &err);
 			CHKERR(err, "Failed to create a compute kernel!");
 			err = clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &max_wg_size, NULL);
-			if(verbosity) printf("Kernel Max Work Group Size: %d\n",max_wg_size);
+			if(verbosity) printf("Kernel Max Work Group Size: %zu\n",max_wg_size);
 			CHKERR(err, "Failed to retrieve kernel work group info!");
 			global_size = csr[0].num_rows; //Preconditions: all matrices in input file are same size
 			//				all kernels have same max workgroup size
@@ -351,7 +351,7 @@ int main(int argc, char** argv)
 		for(ii=0; ii<num_wg_sizes; ii++) //loop through all wg_sizes that need to be tested
 		{
 			num_wg = global_size / wg_sizes[ii];
-			printf("Executing with WG Size #%d of %d: %d...\n",ii+1,num_wg_sizes,wg_sizes[ii]);
+			printf("Executing with WG Size #%d of %d: %zu...\n",ii+1,num_wg_sizes,wg_sizes[ii]);
 
 			for(i=0; i<num_execs; i++) //repeat Host-Device transfer, kernel execution, and device-host transfer num_execs times
 			{						//to gather multiple samples of data

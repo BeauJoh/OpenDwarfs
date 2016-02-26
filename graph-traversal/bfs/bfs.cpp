@@ -282,7 +282,7 @@ void BFSGraph(int argc, char ** argv)
 	size_t WorkSize[1] = {(no_of_nodes/maxThreads[0])*maxThreads[0] + ((no_of_nodes%maxThreads[0])==0?0:maxThreads[0])}; // one dimensional Range
 
 	size_t localWorkSize[1] = {maxThreads[0]};
-	printf("maxThreads[0]=%d WorkSize[0]=%d localWorkSize[0]=%d\n", maxThreads[0], WorkSize[0], localWorkSize[0]);
+	printf("maxThreads[0]=%zu WorkSize[0]=%zu localWorkSize[0]=%zu\n", maxThreads[0], WorkSize[0], localWorkSize[0]);
 	cl_event syncEvent;
 	do
 	{
