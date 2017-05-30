@@ -6,6 +6,7 @@
 #include <iostream>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 #include <malloc.h>
 
 #define AOCL_ALIGNMENT 64
@@ -73,8 +74,11 @@ void copy(cl_command_queue commands, cl_mem dst, cl_mem src, int N)
 	template <typename T>
 void upload(cl_command_queue commands, cl_mem dst, T* src, int N)
 {
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	int err = clEnqueueWriteBuffer(commands, dst, CL_TRUE, 0, sizeof(T) * N, src, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CFD Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Unable to write memory to device");
@@ -83,8 +87,11 @@ void upload(cl_command_queue commands, cl_mem dst, T* src, int N)
 	template <typename T>
 void download(cl_command_queue commands, T* dst, cl_mem src, int N)
 {
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 	int err = clEnqueueReadBuffer(commands, src, CL_TRUE, 0, sizeof(T)*N, dst, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "CFD Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Unable to read memory from device");
@@ -183,6 +190,7 @@ int main(int argc, char** argv)
 {
 	ocd_init(&argc, &argv, NULL);
 	ocd_initCL();
+    LSB_Init("cfd", 0);
 
 	cl_int err;
 
@@ -247,6 +255,8 @@ int main(int argc, char** argv)
 				&h_ff_fc_momentum_x, &h_ff_fc_momentum_y, &h_ff_fc_momentum_z,
 				&h_ff_fc_density_energy);
 
+        LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+        LSB_Res();
 		// copy far field conditions to the gpu
 		ff_variable = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * NVAR, h_ff_variable, &err);
 		CHKERR(err, "Unable to allocate ff data");
@@ -258,6 +268,7 @@ int main(int argc, char** argv)
 		CHKERR(err, "Unable to allocate ff data");
 		ff_fc_density_energy = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_density_energy, &err);
 		CHKERR(err, "Unable to allocate ff data");
+        LSB_Rec(0);
 	}
 	int nel;
 	int nelr;
@@ -336,6 +347,8 @@ int main(int argc, char** argv)
 		delete[] h_normals;
 	}
 
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 	char* kernel_files;
 	int num_kernels = 20;
 	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
@@ -363,7 +376,10 @@ int main(int argc, char** argv)
 
 	// Create arrays and set initial conditions
 	cl_mem variables = alloc<cl_float>(context, nelr*NVAR);
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "setting_kernel_initialize_variables_arguments");
+    LSB_Res();
 	err = 0;
 	err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
 	err |= clSetKernelArg(kernel_initialize_variables, 1, sizeof(cl_mem),&variables);
@@ -372,15 +388,22 @@ int main(int argc, char** argv)
 	// Get the maximum work group size for executing the kernel on the device
 	//err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 	CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
+    LSB_Rec(0);
+
+    LSB_Set_Rparam_string("region", "kernel_initialize_variables_kernel");
+    LSB_Res();
 	local_size = 1;//std::min(local_size, (size_t)nelr);
 	global_size = nelr;
 	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 	err = clFinish(commands);
+    LSB_Rec(0);
+
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 0");
 
-
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	cl_mem old_variables = alloc<float>(context, nelr*NVAR);
 	cl_mem fluxes = alloc<float>(context, nelr*NVAR);
 	cl_mem step_factors = alloc<float>(context, nelr);
@@ -390,7 +413,10 @@ int main(int argc, char** argv)
 	cl_mem fc_momentum_z = alloc<float>(context, nelr*NDIM);
 	cl_mem fc_density_energy = alloc<float>(context, nelr*NDIM);
 	clFinish(commands);
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "setting_kernel_initialize_variables_arguments");
+    LSB_Res();
 	// make sure all memory is floatly allocated before we start timing
 	err = 0;
 	err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
@@ -400,12 +426,21 @@ int main(int argc, char** argv)
 	// Get the maximum work group size for executing the kernel on the device
 	err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 	CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
+    LSB_Rec(0);
+
+    LSB_Set_Rparam_string("region", "kernel_initialize_variables_kernel");
+    LSB_Res();
 	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
+
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 1");
-	err = 0;
+	
+    LSB_Set_Rparam_string("region", "setting_kernel_initialize_variables_arguments");
+    LSB_Res();
+    err = 0;
 	err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
 	err |= clSetKernelArg(kernel_initialize_variables, 1, sizeof(cl_mem),&fluxes);
 	err |= clSetKernelArg(kernel_initialize_variables, 2, sizeof(cl_mem),&ff_variable);
@@ -413,9 +448,14 @@ int main(int argc, char** argv)
 	// Get the maximum work group size for executing the kernel on the device
 	err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 	CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "kernel_initialize_variables_kernel");
+    LSB_Res();
 	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
+
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 2");
@@ -424,21 +464,24 @@ int main(int argc, char** argv)
 	float temp[nelr];
 	for(int i = 0; i < nelr; i++)
 		temp[i] = 0;
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	step_factors = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * nelr, temp, &err);
 	CHKERR(err, "Unable to memset step_factors");
 	// make sure CUDA isn't still doing something before we start timing
-
 	clFinish(commands);
+    LSB_Rec(0);
 
 	// these need to be computed the first time in order to compute time step
 	std::cout << "Starting..." << std::endl;
-
 
 	// Begin iterations
 	for(int i = 0; i < iterations; i++)
 	{
 		copy<float>(commands, old_variables, variables, nelr*NVAR);
 
+        LSB_Set_Rparam_string("region", "setting_kernel_compute_step_factor_arguments");
+        LSB_Res();
 		// for the first iteration we compute the time step
 		err = 0;
 		err = clSetKernelArg(kernel_compute_step_factor, 0, sizeof(int), &nelr);
@@ -449,13 +492,22 @@ int main(int argc, char** argv)
 		// Get the maximum work group size for executing the kernel on the device
 		err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 		CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
+        LSB_Rec(i);
+
+        LSB_Set_Rparam_string("region", "kernel_compute_step_factor_kernel");
+        LSB_Res();
 		err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(i);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Step Factor Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(err, "Failed to execute kernel[kernel_compute_step_factor]!");
 		for(int j = 0; j < RK; j++)
 		{
+            LSB_Set_Rparam_string("region", "setting_kernel_compute_flux_contributions_arguments");
+            LSB_Res();
+
 			err = 0;
 			err = clSetKernelArg(kernel_compute_flux_contributions, 0, sizeof(int), &nelr);
 			err |= clSetKernelArg(kernel_compute_flux_contributions, 1, sizeof(cl_mem),&variables);
@@ -467,12 +519,20 @@ int main(int argc, char** argv)
 			// Get the maximum work group size for executing the kernel on the device
 			err = clGetKernelWorkGroupInfo(kernel_compute_flux_contributions, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 			CHKERR(err, "Failed to retrieve kernel_compute_flux_contributions work group info!");
+            LSB_Rec(j);
+
+            LSB_Set_Rparam_string("region", "kernel_compute_flux_contributions_kernel");
+            LSB_Res();
 			err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(j);
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Flux Contribution Kernel", ocdTempTimer)
 			//compute_flux_contributions(nelr, variables, fc_momentum_x, fc_momentum_y, fc_momentum_z, fc_density_energy);
 			END_TIMER(ocdTempTimer)
 			CHKERR(err, "Failed to execute kernel [kernel_compute_flux_contributions]!");
+
+            LSB_Set_Rparam_string("region", "setting_kernel_compute_flux_arguments");
+            LSB_Res();
 			err = 0;
 			err = clSetKernelArg(kernel_compute_flux, 0, sizeof(int), &nelr);
 			err |= clSetKernelArg(kernel_compute_flux, 1, sizeof(cl_mem), &elements_surrounding_elements);
@@ -492,11 +552,19 @@ int main(int argc, char** argv)
 			// Get the maximum work group size for executing the kernel on the device
 			err = clGetKernelWorkGroupInfo(kernel_compute_flux, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 			CHKERR(err, "Failed to retrieve kernel_compute_flux work group info!");
+            LSB_Rec(j);
+
+            LSB_Set_Rparam_string("region", "kernel_compute_flux_kernel");
+            LSB_Res();
 			err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(j);
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Flux Kernel", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
 			CHKERR(err, "Failed to execute kernel [kernel_compute_flux]!");
+
+            LSB_Set_Rparam_string("region", "setting_kernel_time_step_arguments");
+            LSB_Res();
 			err = 0;
 			err = clSetKernelArg(kernel_time_step, 0, sizeof(int), &j);
 			err |= clSetKernelArg(kernel_time_step, 1, sizeof(int), &nelr);
@@ -508,8 +576,13 @@ int main(int argc, char** argv)
 			// Get the maximum work group size for executing the kernel on the device
 			err = clGetKernelWorkGroupInfo(kernel_time_step, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
 			CHKERR(err, "Failed to retrieve kernel_time_step work group info!");
+            LSB_Rec(j);
+
+            LSB_Set_Rparam_string("region", "kernel_time_step_kernel");
+            LSB_Res();
 			err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(j);
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Time Step Kernel", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
 			CHKERR(err, "Failed to execute kernel [kernel_time_step]!");
@@ -517,6 +590,8 @@ int main(int argc, char** argv)
 	}
 
 	clFinish(commands);
+    LSB_Finalize();
+
 	std::cout << "Finished" << std::endl;
 	std::cout << "Saving solution..." << std::endl;
 	dump(commands, variables, nel, nelr);

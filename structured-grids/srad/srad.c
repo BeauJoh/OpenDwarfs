@@ -50,6 +50,7 @@ runTest( int argc, char** argv)
 	int rows, cols, size_I, size_R, niter = 10, iter;
 	float *I, *J, lambda, q0sqr, sum, sum2, tmp, meanROI,varROI ;
 	int i, j, k;
+    LSB_Init("srad", 0);
 
 #ifdef CPU
 	float Jc, G2, L, num, den, qsqr;
@@ -125,19 +126,21 @@ runTest( int argc, char** argv)
 	CHKERR(errcode, "Failed to build program!");
 */    
 
-   
-     char* kernel_files;
-     int num_kernels = 1;
-     kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
-	 strcpy(kernel_files,"srad_kernel");
-        
-     clProgram=ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 
-	clKernel_srad1 = clCreateKernel(clProgram, "srad_cuda_1", &errcode);
+    char* kernel_files;
+    int num_kernels = 1;
+    kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+    strcpy(kernel_files,"srad_kernel");
+        
+    clProgram=ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
+
+    clKernel_srad1 = clCreateKernel(clProgram, "srad_cuda_1", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
 	clKernel_srad2 = clCreateKernel(clProgram, "srad_cuda_2", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
-
+    LSB_Rec(0);
 #endif
 
 	unsigned int r1, r2, c1, c2;
@@ -210,6 +213,8 @@ runTest( int argc, char** argv)
 #endif
 
 #ifdef GPU
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 
 	//Allocate device memory
 	J_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
@@ -225,8 +230,11 @@ runTest( int argc, char** argv)
 	N_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 
-
+    LSB_Rec(0);
 #endif 
+
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
 
 	printf("Randomizing the input matrix\n");
 	//Generate a random matrix
@@ -248,6 +256,7 @@ runTest( int argc, char** argv)
 		meanROI = sum / size_R;
 		varROI  = (sum2 / size_R) - meanROI*meanROI;
 		q0sqr   = varROI / (meanROI*meanROI);
+    LSB_Rec(0);
 
 #ifdef CPU
 
@@ -313,15 +322,18 @@ runTest( int argc, char** argv)
 		size_t localWorkSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
 		size_t globalWorkSize[2] = {block_x*localWorkSize[0], block_y*localWorkSize[1]};
 
-
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+        LSB_Res();
 		//Copy data from main memory to device memory
 		errcode = clEnqueueWriteBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
-
 		clFinish(commands);
+        LSB_Rec(0);
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SRAD Data Copy", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue write buffer!");
 
+        LSB_Set_Rparam_string("region", "setting_srad1_kernel_arguments");
+        LSB_Res();
 		//Run kernels
 		errcode = clSetKernelArg(clKernel_srad1, 0, sizeof(cl_mem), (void *) &E_C);
 		errcode |= clSetKernelArg(clKernel_srad1, 1, sizeof(cl_mem), (void *) &W_C);
@@ -333,11 +345,18 @@ runTest( int argc, char** argv)
 		errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
 		errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
 		CHKERR(errcode, "Failed to set kernel arguments!");
+        LSB_Rec(0);
+        LSB_Set_Rparam_string("region", "srad1_kernel");
+        LSB_Res();
 		errcode = clEnqueueNDRangeKernel(commands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(0);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad1", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue kernel!");
+
+        LSB_Set_Rparam_string("region", "setting_srad2_kernel_arguments");
+        LSB_Res();
 		errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
 		errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
 		errcode |= clSetKernelArg(clKernel_srad2, 2, sizeof(cl_mem), (void *) &N_C);
@@ -349,15 +368,23 @@ runTest( int argc, char** argv)
 		errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
 		errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
 		CHKERR(errcode, "Failed to set kernel arguments!");
+        LSB_Rec(0);
+
+        LSB_Set_Rparam_string("region", "srad2_kernel");
+        LSB_Res();
 		errcode = clEnqueueNDRangeKernel(commands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(0);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad2", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue kernel!");
 
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+        LSB_Res();
 		//Copy data from device memory to main memory
 		errcode = clEnqueueReadBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(0);
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SRAD Data Copy", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue read buffer!");
@@ -383,6 +410,7 @@ runTest( int argc, char** argv)
 #endif 
 
 	printf("Computation Done\n");
+    LSB_Finalize();
 
 	free(I);
 	free(J);
