@@ -14,6 +14,7 @@
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 
 //If GPU is defined in srad.h the C implementation runs, otherwise the OpenCL one.
 
