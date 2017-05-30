@@ -87,7 +87,6 @@ void BFSGraph(int argc, char ** argv)
 	//n_platform = opts.platform_id;
 	//n_device = opts.device_id;
 	//_deviceType = opts.device_type;
-
 	if(argc < 2)
 	{
 		printf("Usage: <filename>\n");
@@ -101,6 +100,11 @@ void BFSGraph(int argc, char ** argv)
 		printf("Error Reading graph file\n");
 		return;
 	}
+
+    LSB_Init("bfs", 0);
+
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
 
 	int source = 0;
 	fscanf(fp, "%d", &no_of_nodes);
@@ -157,6 +161,8 @@ void BFSGraph(int argc, char ** argv)
 
 	printf("Read File\n");
 
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	//Copy the Node list to device memory
 	int err;
 	//cl_mem d_graph_nodes = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -174,6 +180,10 @@ void BFSGraph(int argc, char ** argv)
 	//Copy the Visited nodes to device memory
 	cl_mem  d_graph_visited =   clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * no_of_nodes, NULL,  &err);
 	//sizeof(int) * no_of_nodes, h_graph_visited, &err);
+    LSB_Rec(0);
+
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	//Allocate memory for the result on host side
 	clEnqueueWriteBuffer(commands, d_graph_nodes, CL_TRUE, 0, sizeof(Node) * no_of_nodes, h_graph_nodes, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -196,7 +206,7 @@ void BFSGraph(int argc, char ** argv)
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-
+    LSB_Rec(0);
 
 	int* h_cost = (int*) memalign(AOCL_ALIGNMENT, sizeof(int) * no_of_nodes);
 	//int* h_cost = (int*) malloc(sizeof(int) * no_of_nodes);
@@ -204,6 +214,9 @@ void BFSGraph(int argc, char ** argv)
 	for(unsigned int i = 0; i < no_of_nodes; i++)
 		h_cost[i] = -1;
 	h_cost[source] = 0;
+
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	//Allocate device memory for result
 	cl_mem d_cost =    clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * no_of_nodes, NULL, &err);
 	//Make a bool to check if the execution is over
@@ -212,7 +225,7 @@ void BFSGraph(int argc, char ** argv)
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-
+    LSB_Rec(0);
 
 	printf("Copied Everything to device memory\n");
 
@@ -237,7 +250,8 @@ void BFSGraph(int argc, char ** argv)
 	} */
 
              // To use aocx files for FPGA
-     	
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 	char* kernel_files;
 	int num_kernels = 20;
 
@@ -254,7 +268,10 @@ void BFSGraph(int argc, char ** argv)
 	cl_kernel kernel2 = clCreateKernel(kernel1Program, "kernel2", &err);
 	if(err != CL_SUCCESS)
 		printf("Error creating kernel 2.\n");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "setting_kernel1_arguments");
+    LSB_Res();
 	//Set Arguments for Kernel1 and 2
 	clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&d_graph_nodes);
 	clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&d_graph_edges);
@@ -263,12 +280,16 @@ void BFSGraph(int argc, char ** argv)
 	clSetKernelArg(kernel1, 4, sizeof(cl_mem), (void*)&d_graph_visited);
 	clSetKernelArg(kernel1, 5, sizeof(cl_mem), (void*)&d_cost);
 	clSetKernelArg(kernel1, 6, sizeof(unsigned int), (void*)&no_of_nodes);
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "setting_kernel2_arguments");
+    LSB_Res();
 	clSetKernelArg(kernel2, 0, sizeof(cl_mem), (void*)&d_graph_mask);
 	clSetKernelArg(kernel2, 1, sizeof(cl_mem), (void*)&d_updating_graph_mask);
 	clSetKernelArg(kernel2, 2, sizeof(cl_mem), (void*)&d_graph_visited);
 	clSetKernelArg(kernel2, 3, sizeof(cl_mem), (void*)&d_over);
 	clSetKernelArg(kernel2, 4, sizeof(unsigned int), (void*)&no_of_nodes);
+    LSB_Rec(0);
 
 	int k = 0;
 	int stop;
@@ -288,46 +309,62 @@ void BFSGraph(int argc, char ** argv)
 	do
 	{
 		stop = 0;
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+        LSB_Res();
 		//Copy stop to device
 		clEnqueueWriteBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(k);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Stop Flag Copy", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
+        LSB_Set_Rparam_string("region", "kernel1_kernel");
+        LSB_Res();
 		//Run Kernel1 and Kernel2
 		cl_int err = clEnqueueNDRangeKernel(commands, kernel1, 1, NULL,
 				WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(k);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernel 1", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
 			if(err != CL_SUCCESS)
 				printf("Error occurred running kernel1.(%d)\n", err);
-		err = clEnqueueNDRangeKernel(commands, kernel2, 1, NULL,
+		LSB_Set_Rparam_string("region", "kernel2_kernel");
+        LSB_Res();
+        err = clEnqueueNDRangeKernel(commands, kernel2, 1, NULL,
 				WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(k);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernel 2", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		if(err != CL_SUCCESS)
 			printf("Error occurred running kernel2.\n");
 
 		//Copy stop from device
-
+        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+        LSB_Res();
 		clEnqueueReadBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(k);
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Stop Flag Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
+		END_TIMER(ocdTempTimer);
 		k++;
 	}while(stop == 1);
 
 	printf("Kernel Executed %d times\n", k);
 
 	//copy result form device to host
-
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 	clEnqueueReadBuffer(commands, d_cost, CL_TRUE, 0, sizeof(int)*no_of_nodes, (void*)h_cost, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Cost Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 
-	//Store the result into a file
+    LSB_Finalize();
+
+    //Store the result into a file
 	FILE* fpo = fopen("bfs_result.txt", "w");
 	for(unsigned int i = 0; i < no_of_nodes; i++)
 		fprintf(fpo, "%d) cost:%d\n", i, h_cost[i]);

@@ -379,7 +379,7 @@ runTest( int argc, char** argv)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue kernel!");
 
-        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
         LSB_Res();
 		//Copy data from device memory to main memory
 		errcode = clEnqueueReadBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
