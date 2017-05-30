@@ -13,6 +13,7 @@
 #include <math.h>
 #include "../../../include/rdtsc.h"
 #include "../../../include/common_args.h"
+#include "../../../include/lsb.h"
 #include "../inc/crc_formats.h"
 #include "../inc/eth_crc32_lut.h"
 
@@ -110,10 +111,16 @@ void enqueueCRCDevice(unsigned int* h_num, unsigned int* h_answer, size_t global
 {
 	int err,i;
 
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	// Write our data set into the input array in device memory
 	err = clEnqueueWriteBuffer(write_queue, d_input, CL_FALSE, 0, sizeof(char)*page_size*global_size, h_num, 0, NULL, write_page);
 	CHKERR(err, "Failed to enqueue data write!");
+    clFinish(write_queue);
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "setting_kernel_compute_arguments");
+    LSB_Res();
 	// Set the arguments to our compute kernel
 	err = clSetKernelArg(kernel_compute, 0, sizeof(cl_mem), &d_input);
 	CHKERR(err, "Failed to set kernel argument 0!");
@@ -123,14 +130,23 @@ void enqueueCRCDevice(unsigned int* h_num, unsigned int* h_answer, size_t global
 	CHKERR(err, "Failed to set kernel argument 2!");
 	err = clSetKernelArg(kernel_compute, 3, sizeof(cl_mem), &d_output);
 	CHKERR(err, "Failed to set kernel argument 3!");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "kernel_compute_kernel");
+    LSB_Res();
 	if(verbosity >=2) printf("enqueueCRCDevice(): global_size=%zd - local_size=%zd\n",global_size,local_size);
 	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 1, write_page, kernel_exec);
 	CHKERR(err, "Failed to enqueue compute kernel!");
+    clFinish(commands);
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	// Read back the results from the device to verify the output
 	err = clEnqueueReadBuffer(read_queue, d_output, CL_FALSE, 0, sizeof(int)*global_size, h_answer, 1, kernel_exec, read_page);
 	CHKERR(err, "Failed to enqueue output read!");
+    clFinish(read_queue);
+    LSB_Rec(0);
 }
 
 void setup_device(const char* kernel_file)
@@ -187,6 +203,7 @@ int main(int argc, char** argv)
 	ocd_check_requirements(NULL);
 	//ocd_init(&argc, &argv, NULL);
 	ocd_initCL();
+    LSB_Init("crc", 0);
 
 	while((c = getopt (argc, argv, "avn:s:i:p:w:k:hr:")) != -1)
 	{
@@ -259,6 +276,9 @@ int main(int argc, char** argv)
 	check(file != NULL,"-i option must be supplied!");
 	h_num = read_crc(&num_pages,&page_size,file);
 
+    LSB_Set_Rparam_int("number_of_pages", num_pages);
+    LSB_Set_Rparam_int("page_size", page_size);
+
 	if(!num_block_sizes)
 	{
 		num_block_sizes=1;
@@ -325,16 +345,22 @@ int main(int argc, char** argv)
 
 		for(i=0; i<num_blocks; i++)
 		{
+            LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+            LSB_Res();
 			dev_input[i] = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(char)*page_size*num_parallel_crcs[h], NULL, &err);
 			CHKERR(err, "Failed to allocate device memory!");
 			dev_output[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int)*num_parallel_crcs[h], NULL, &err);
 			CHKERR(err, "Failed to allocate device memory!");
+            LSB_Rec(i);
 		}
 
 		for(l=0; l<num_kernels; l++)
 		{
 			if(verbosity) printf("Executing with kernel #%u of %u: %s\n",l+1,num_kernels,kernel_files[l]);
+            LSB_Set_Rparam_string("region", "kernel_creation");
+            LSB_Res();
 			setup_device(kernel_files[l]);
+            LSB_Rec(l);
 
 			for(k=0; k<num_wg_sizes; k++)
 			{
@@ -440,6 +466,7 @@ int main(int argc, char** argv)
 				clReleaseMemObject(dev_output[i]);
 			}
 	}
+    LSB_Finalize();
 	clReleaseCommandQueue(write_queue);
 	clReleaseCommandQueue(commands);
 	clReleaseCommandQueue(read_queue);

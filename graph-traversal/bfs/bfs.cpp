@@ -17,6 +17,7 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 
 #include <utility>
 #define __NO_STD_VECTOR // Use cl::vector and cl::string and 
