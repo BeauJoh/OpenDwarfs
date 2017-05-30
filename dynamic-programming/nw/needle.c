@@ -114,6 +114,11 @@ void runTest( int argc, char** argv)
 		exit(1);
 	}
 
+    LSB_Init("needle", 0);
+   
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
+
 	max_rows = max_rows + 1;
 	max_cols = max_cols + 1;
     if(_deviceType == 3) {
@@ -158,6 +163,10 @@ void runTest( int argc, char** argv)
 		input_itemsets[i*max_cols] = -i * penalty;
 	for(j = 1; j< max_cols ; j++)
 		input_itemsets[j] = -j * penalty;
+    LSB_Rec(0);
+    LSB_Set_Rparam_int("max_cols", max_cols);
+    LSB_Set_Rparam_int("max_rows", max_rows);
+    LSB_Set_Rparam_int("penalty", penalty);
 
 	//cl_device_id device_id;
 	//cl_context context;
@@ -166,7 +175,8 @@ void runTest( int argc, char** argv)
 	cl_kernel clKernel_nw1;
 	cl_kernel clKernel_nw2;
 
-
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 	FILE *kernelFile;
 	char *kernelSource;
 	size_t kernelLength;
@@ -180,13 +190,20 @@ void runTest( int argc, char** argv)
 	CHKERR(errcode, "Failed to create kernel!");
 	clKernel_nw2 = clCreateKernel(clProgram, "needle_opencl_shared_2", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
+    LSB_Rec(0);
 
 	size = max_cols * max_rows;
+
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	referrence_cuda = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(int)*size, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 	matrix_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int)*size, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	errcode = clEnqueueWriteBuffer(commands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Reference Copy", ocdTempTimer)
@@ -198,6 +215,7 @@ void runTest( int argc, char** argv)
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Item Set Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue write buffer!");
+    LSB_Rec(0);
 
 	size_t localWorkSize[2] = {BLOCK_SIZE, 1}; //BLOCK_SIZE work items per work-group in 1D only.
 	size_t globalWorkSize[2];
@@ -216,6 +234,9 @@ void runTest( int argc, char** argv)
 		globalWorkSize[0] = i*localWorkSize[0]; //i.e., for 1st iteration BLOCK_SIZE total (=1 W.G.), for 2nd iteration 2*BLOCK_SIZE total work items
 		// (=2 W.G.)
 		globalWorkSize[1] = 1*localWorkSize[1];
+
+        LSB_Set_Rparam_string("region", "setting_clKernel_nw1_arguments");
+        LSB_Res();
 		errcode = clSetKernelArg(clKernel_nw1, 0, sizeof(cl_mem), (void *) &referrence_cuda);
 		errcode |= clSetKernelArg(clKernel_nw1, 1, sizeof(cl_mem), (void *) &matrix_cuda);
 		errcode |= clSetKernelArg(clKernel_nw1, 2, sizeof(int), (void *) &max_cols);
@@ -223,8 +244,13 @@ void runTest( int argc, char** argv)
 		errcode |= clSetKernelArg(clKernel_nw1, 4, sizeof(int), (void *) &i);
 		errcode |= clSetKernelArg(clKernel_nw1, 5, sizeof(int), (void *) &block_width);
 		CHKERR(errcode, "Failed to set kernel arguments!");
-		errcode = clEnqueueNDRangeKernel(commands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+        LSB_Rec(i);
+		
+        LSB_Set_Rparam_string("region", "clKernel_nw1_kernel");
+        LSB_Res();
+        errcode = clEnqueueNDRangeKernel(commands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(i);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernel nw1", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue kernel!");
@@ -237,6 +263,8 @@ void runTest( int argc, char** argv)
 	for(i = block_width - 1  ; i >= 1 ; i--){
 		globalWorkSize[0] = i*localWorkSize[0];
 		globalWorkSize[1] = 1*localWorkSize[1];
+        LSB_Set_Rparam_string("region", "setting_clKernel_nw2_arguments");
+        LSB_Res();
 		errcode = clSetKernelArg(clKernel_nw2, 0, sizeof(cl_mem), (void *) &referrence_cuda);
 		errcode |= clSetKernelArg(clKernel_nw2, 1, sizeof(cl_mem), (void *) &matrix_cuda);
 		errcode |= clSetKernelArg(clKernel_nw2, 2, sizeof(int), (void *) &max_cols);
@@ -244,19 +272,30 @@ void runTest( int argc, char** argv)
 		errcode |= clSetKernelArg(clKernel_nw2, 4, sizeof(int), (void *) &i);
 		errcode |= clSetKernelArg(clKernel_nw2, 5, sizeof(int), (void *) &block_width);
 		CHKERR(errcode, "Failed to set kernel arguments!");
+        LSB_Rec(i);
+
+        LSB_Set_Rparam_string("region", "clKernel_nw2_kernel");
+        LSB_Res();
 		errcode = clEnqueueNDRangeKernel(commands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(i);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernel nw2", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue kernel!");
 	}
 
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 	errcode = clEnqueueReadBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
+
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "NW Item Set Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 
+    LSB_Finalize();
 
 //#ifdef TRACE
 
