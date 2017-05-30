@@ -68,6 +68,7 @@
 #include <omp.h>
 
 #include "kmeans.h"
+#include "../../include/lsb.h"
 
 #define RANDOM_MAX 2147483647
 
@@ -81,6 +82,9 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
                           float   threshold,
                           int    *membership) /* out: [npoints] */
 {    
+    LSB_Set_Rparam_string("region", "host_side_setup_choosing_initial_cluster_positions");
+    LSB_Res();
+
     int      i, j, n = 0;				/* counters */
 	int		 loop=0, temp;
     int     *new_centers_len;	/* [nclusters]: no. of points in each cluster */
@@ -141,9 +145,11 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
     new_centers[0] = (float*)  calloc(nclusters * nfeatures, sizeof(float));
     for (i=1; i<nclusters; i++)
         new_centers[i] = new_centers[i-1] + nfeatures;
-
+  LSB_Rec(0);
 	/* iterate until convergence */
 	do {
+        LSB_Set_Rparam_int("iteration_number_hint_until_convergence", c);
+
         delta = 0.0;
 		// CUDA
 		delta = (float) kmeansCuda(feature,			/* in: [npoints][nfeatures] */
@@ -168,7 +174,6 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 		}	 
 		c++;
     } while ((delta > threshold) && (loop++ < 500));	/* makes sure loop terminates */
-	printf("iterated %d times\n", c);
     free(new_centers[0]);
     free(new_centers);
     free(new_centers_len);

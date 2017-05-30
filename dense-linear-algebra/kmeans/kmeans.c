@@ -81,6 +81,7 @@
 #include <malloc.h>
 #include <unistd.h>
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 
 #define AOCL_ALIGNMENT 64
 extern double wtime(void);
@@ -107,6 +108,7 @@ void usage(char *argv0) {
 
 /*---< main() >-------------------------------------------------------------*/
 int setup(int argc, char **argv) {
+
 	int		opt;
 	extern char   *optarg;
 	char   *filename = 0;
@@ -165,6 +167,10 @@ int setup(int argc, char **argv) {
 	}
 
 	if (filename == 0) usage(argv[0]);
+
+    LSB_Init("kmeans", 0);
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
 
 	/* ============== I/O begin ==============*/
 	/* get nfeatures and npoints */
@@ -230,6 +236,8 @@ int setup(int argc, char **argv) {
 	printf("\nNumber of objects: %d\n", npoints);
 	printf("Number of features: %d\n", nfeatures);	
 	/* ============== I/O end ==============*/
+    LSB_Set_Rparam_int("number_of_objects", npoints);
+    LSB_Set_Rparam_int("number_of_features", nfeatures);
 
 	// error check for clusters
 	if (npoints < min_nclusters)
@@ -242,8 +250,9 @@ int setup(int argc, char **argv) {
 	memcpy(features[0], buf, npoints*nfeatures*sizeof(float)); /* now features holds 2-dimensional array of features */
 	free(buf);
 
-	/* ============ Initialize OpenCL Environment ============ */
+    LSB_Rec(0);
 
+	/* ============ Initialize OpenCL Environment ============ */
 	initCL();
 
 	/* ======================= core of the clustering ===================*/
@@ -311,6 +320,7 @@ int setup(int argc, char **argv) {
 		}
 	}
 
+    LSB_Finalize();
 
 	/* free up memory */
 #ifndef __FPGA__

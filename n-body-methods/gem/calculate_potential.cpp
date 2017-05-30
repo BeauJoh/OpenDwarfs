@@ -149,6 +149,8 @@ void calc_potential_single_step(residue *residues,
 	ocd_initCL();
 
     LSB_Init("gem", 0);
+    LSB_Set_Rparam_int("number_of_residues",nres);
+    LSB_Set_Rparam_int("number_of_vertices",nvert);
 	/////////////////////////////////////////////////////////////////
 	// Load CL file, build CL program object, create CL kernel object
 	/////////////////////////////////////////////////////////////////

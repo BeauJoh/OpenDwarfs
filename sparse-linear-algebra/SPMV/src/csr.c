@@ -14,6 +14,8 @@
 
 #include "../../../include/rdtsc.h"
 #include "../../../include/common_args.h"
+#include "../../../include/lsb.h"
+
 //#include "../../../include/common_util.h"
 #include "../inc/common.h"
 #include "../inc/sparse_formats.h"
@@ -171,6 +173,10 @@ int main(int argc, char** argv)
 	ocd_parse(&argc, &argv);
 	ocd_check_requirements(NULL);
 	ocd_initCL();
+    LSB_Init("csr", 0);
+
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
 
 	while ((opt = getopt_long(argc, argv, "::vmw:k:i:par:::", long_options, &option_index)) != -1 )
 	{
@@ -244,6 +250,7 @@ int main(int argc, char** argv)
 	if(do_print) print_csr_arr_std(csr,num_matrices,stdout);
 	else if(verbosity) {printf("Number of input matrices: %d\nMatrix 0 Metadata:\n",num_matrices); print_csr_metadata(&csr[0],stdout);}
 
+
 	cl_mem csr_ap[num_matrices],csr_aj[num_matrices],csr_ax[num_matrices],x_loc[num_matrices],y_loc[num_matrices];
 	cl_event kernel_exec[num_matrices],ap_write[num_matrices],aj_write[num_matrices],ax_write[num_matrices],x_loc_write[num_matrices],y_loc_write[num_matrices],y_read[num_matrices];
 
@@ -283,6 +290,8 @@ int main(int argc, char** argv)
 
 	if(verbosity) printf("Input Generated.\n");
 
+    LSB_Rec(0);
+
 #ifdef ENABLE_TIMER
 	tv = malloc(sizeof(struct timeval));
 	check(tv != NULL,"csr.main() - Heap Overflow! Cannot allocate space for tv");
@@ -296,6 +305,10 @@ int main(int argc, char** argv)
 	/* Create a compute context */
 	//context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
 	//CHKERR(err, "Failed to create a compute context!");
+    LSB_Set_Rparam_int("number_of_matrices",num_matrices);
+
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 
 	for(k=0; k<num_matrices; k++)
 	{
@@ -321,6 +334,8 @@ int main(int argc, char** argv)
 		}
 	}
 
+    LSB_Rec(0);
+
 	if(!kernel_files) //use default if no kernel files were given on commandline
 	{
 		num_kernels = 1;
@@ -331,11 +346,15 @@ int main(int argc, char** argv)
 
 	for(iii=0; iii<num_kernels; iii++) //loop through all kernels that need to be tested
 	{
+        
 		printf("Kernel #%d: '%s'\n\n",iii+1,kernel_files[iii]);
 		program = ocdBuildProgramFromFile(context,device_id,kernel_files[iii], NULL);
 
 		if(!wg_sizes) //use default work-group size if none was specified on command line
 		{
+            LSB_Set_Rparam_string("region", "kernel_creation");
+            LSB_Res();
+
 			/* Get the maximum work group size for executing the kernel on the device */
 			kernel = clCreateKernel(program, "csr", &err);
 			CHKERR(err, "Failed to create a compute kernel!");
@@ -346,16 +365,20 @@ int main(int argc, char** argv)
 			//				all kernels have same max workgroup size
 			wg_sizes = default_wg_sizes(&num_wg_sizes,max_wg_size,global_size);
 			clReleaseKernel(kernel);
+
+            LSB_Rec(iii);
 		}
 
 		for(ii=0; ii<num_wg_sizes; ii++) //loop through all wg_sizes that need to be tested
 		{
 			num_wg = global_size / wg_sizes[ii];
 			printf("Executing with WG Size #%d of %d: %zu...\n",ii+1,num_wg_sizes,wg_sizes[ii]);
+            LSB_Set_Rparam_int("workgroup_size",wg_sizes[ii]);
 
 			for(i=0; i<num_execs; i++) //repeat Host-Device transfer, kernel execution, and device-host transfer num_execs times
 			{						//to gather multiple samples of data
 				if(verbosity) printf("Beginning execution #%d of %d\n",i+1,num_execs);
+                LSB_Set_Rparam_int("execution_number",i);
 
 				/* Create command queues, one for each stage in the write-execute-read pipeline */
 				write_queue = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
@@ -365,9 +388,14 @@ int main(int argc, char** argv)
 				read_queue = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
 				CHKERR(err, "Failed to create a command queue!");
 
+                LSB_Set_Rparam_string("region", "kernel_creation");
+                LSB_Res();
+
 				/* Get the maximum work group size for executing the kernel on the device */
 				kernel = clCreateKernel(program, "csr", &err);
 				CHKERR(err, "Failed to create a compute kernel!");
+
+                LSB_Rec(i);
 
 #ifdef ENABLE_TIMER
 				TIMER_INIT
@@ -376,7 +404,9 @@ int main(int argc, char** argv)
 					for(k=0; k<num_matrices; k++)
 					{
 						if(verbosity >= 2) printf("Enqueuing Matrix #%d of %d into pipeline...\n",k+1,num_matrices);
-
+                        
+                        LSB_Set_Rparam_string("region","device_side_h2d_copy");
+                        LSB_Res();
 						/* Write our data set into the input array in device memory */
 						err = clEnqueueWriteBuffer(write_queue, csr_ap[k], CL_FALSE, 0, sizeof(unsigned int)*csr[k].num_rows+4, csr[k].Ap, 0, NULL, &ap_write[k]);
 						CHKERR(err, "Failed to write to source array!");
@@ -392,7 +422,11 @@ int main(int argc, char** argv)
 
 						err = clEnqueueWriteBuffer(write_queue, y_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_rows, y_host, 0, NULL, &y_loc_write[k]);
 						CHKERR(err, "Failed to write to source array!");
+                        clFinish(write_queue);
+                        LSB_Rec(i);
 
+                        LSB_Set_Rparam_string("region","setting_csr_kernel_arguments");
+                        LSB_Res();
 						/* Set the arguments to our compute kernel */
 						global_size = csr[k].num_rows;
 						err = clSetKernelArg(kernel, 0, sizeof(int), &global_size);
@@ -402,18 +436,24 @@ int main(int argc, char** argv)
 						err |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &x_loc[k]);
 						err |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &y_loc[k]);
 						CHKERR(err, "Failed to set kernel arguments!");
+                        LSB_Rec(i);
 
+                        LSB_Set_Rparam_string("region", "csr_kernel");
+                        LSB_Res();
 						/* Enqueue Kernel */
 						err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &wg_sizes[ii], 1, &y_loc_write[k], &kernel_exec[k]);
 						CHKERR(err, "Failed to execute kernel!");
+                        clFinish(commands);
+                        LSB_Rec(i);
 
+                        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+                        LSB_Res();
 						/* Read back the results from the device to verify the output */
 						err = clEnqueueReadBuffer(read_queue, y_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_rows, device_out[k], 1, &kernel_exec[k], &y_read[k]);
+                        clFinish(read_queue);
 						CHKERR(err, "Failed to read output array!");
+                        LSB_Rec(i);
 					}
-				clFinish(write_queue);
-				clFinish(commands);
-				clFinish(read_queue);
 
 #ifdef ENABLE_TIMER
 				TIMER_STOP
@@ -512,6 +552,9 @@ int main(int argc, char** argv)
 
 	clReleaseContext(context);
 	CHKERR(err,"Failed to release context!");
+    
+    LSB_Finalize();
+
 	if(verbosity) printf("Released context\n");
 	free(kernel_files);
 	free(wg_sizes);

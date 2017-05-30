@@ -113,6 +113,7 @@ int cluster(int      npoints,				/* number of data points */
 		/* iterate nloops times for each number of clusters */
 		for(i = 0; i < nloops; i++)
 		{
+
 			/* initialize initial cluster centers, CUDA calls (@ kmeans_cuda.cu) */
 			tmp_cluster_centres = kmeans_clustering(features,
 					nfeatures,

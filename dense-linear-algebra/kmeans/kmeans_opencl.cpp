@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 
 #include <omp.h>
 
@@ -51,6 +52,7 @@ cl_mem block_deltas_d;												/* per block calculation of deltas */
 	extern "C"
 void initCL()
 {
+
 	FILE *kernelFile;
 	char *kernelSource;
 	size_t kernelLength;
@@ -67,6 +69,8 @@ void initCL()
 
 	num_threads = num_threads_perdim*num_threads_perdim;
 
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 
     char* kernel_files;
 	int num_kernels = 50;
@@ -79,6 +83,7 @@ void initCL()
 	CHKERR(errcode, "Failed to create kernel!");
 	clKernel_kmeansPoint = clCreateKernel(clProgram, "kmeansPoint", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
+    LSB_Rec(0);
 }
 /* -------------- initCL() end -------------- */
 
@@ -87,6 +92,9 @@ void initCL()
 	extern "C"
 void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 {	
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
+
 	cl_int errcode;
 	size_t globalWorkSize;
 	size_t localWorkSize;
@@ -162,6 +170,8 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	//cudaMemcpy(new_clusters_d, new_centers[0], nclusters*nfeatures*sizeof(float), cudaMemcpyHostToDevice);
 #endif
 
+    LSB_Rec(0);
+
 }
 /* -------------- allocateMemory() end ------------------- */
 
@@ -200,6 +210,7 @@ void deallocateMemory()
 main( int argc, char** argv) 
 {
 	// as done in the CUDA start/help document provided
+    printf("here here");
 	ocd_init(&argc, &argv, NULL);
 	setup(argc, argv);   
     printf("Setup done\n");
@@ -228,7 +239,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	int delta = 0;			/* if point has moved */
 	int i,j;				/* counters */
 
-
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	/* copy membership (host to device) */
 
 	errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
@@ -244,7 +256,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Cluster Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue write buffer!");
-
+    LSB_Rec(0);
 	/* set up texture */
 	/*cudaChannelFormatDesc chDesc0 = cudaCreateChannelDesc<float>();
 	  t_features.filterMode = cudaFilterModePoint;   
@@ -273,6 +285,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	/* copy clusters to constant memory */
 	//cudaMemcpyToSymbol("c_clusters",clusters[0],nclusters*nfeatures*sizeof(float),0,cudaMemcpyHostToDevice);
 
+    LSB_Set_Rparam_string("region", "setting_kernel_arguments");
+    LSB_Res();
 
 	/* setup execution parameters.
 	   changed to 2d (source code on NVIDIA CUDA Programming Guide) */
@@ -294,8 +308,11 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_deltas_d);
 #endif
 	CHKERR(errcode, "Failed to set kernel arg!");
+    LSB_Rec(0);
 
 	/* execute the kernel */
+    LSB_Set_Rparam_string("region", "kmeans_kernel");
+    LSB_Res();
 
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHKERR(errcode, "Failed to enqueue kernel!");
@@ -303,7 +320,11 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to clFinish!");
+    LSB_Rec(0);
+
 	/* copy back membership (device to host) */
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 
 	errcode = clEnqueueReadBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -338,6 +359,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 #endif
+
+    LSB_Rec(0);
 
 	/* for each point, sum data points in each cluster
 	   and see if membership has changed:
