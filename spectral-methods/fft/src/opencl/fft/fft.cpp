@@ -177,6 +177,8 @@ void dump2D(OptionParser& op)
 
 	forward2(work, temp, n_ffts, FFTN1, FFTN2);
 	copyFromDevice(result, work, used_bytes);
+    
+    finalize(); 
 
 #ifdef PRINT_RESULT
 	for (i = 0; i < N; i++) {
@@ -238,6 +240,8 @@ void dump1D(OptionParser& op)
 	forward(work, temp, n_ffts, fftn);
 
 	copyFromDevice(result, work, used_bytes);
+
+    finalize();
 #ifdef PRINT_RESULT
 	for (i = 0; i < N; i++) {
 		fprintf(stdout, "data[%d] (%g, %g)\n", i, result[i].x, result[i].y);

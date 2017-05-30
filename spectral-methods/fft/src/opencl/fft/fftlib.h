@@ -20,6 +20,7 @@ struct cplxdbl {
 void createKernelWithSource();
 void init(OptionParser& op, bool dp, int fftn);
 void init2(OptionParser& op, bool dp, int fftn1, int fftn2);
+void finalize();
 void forward(void* work, void* temp, int n_ffts, int fftn);
 void forward2(void* work, void* temp,  int n_ffts, int fftn1, int fftn2);
 void inverse(void* work, int n_ffts);
