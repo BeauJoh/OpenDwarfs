@@ -8,6 +8,7 @@
 #include <malloc.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 
 #ifdef __FPGA__ 
     #include "cl_ext.h"
@@ -100,6 +101,7 @@ void init_cl()
 	const char *progSrc;
 
 	ocd_initCL();//KK
+    LSB_Init("bwa_hmm", 0);
 
 	/* identify the first platform */
 	//errNum = clGetPlatformIDs(1, &_cl_firstPlatform, NULL);
@@ -137,6 +139,8 @@ void init_cl()
 */
 
 
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 
     cl_program _cl_program;
     _cl_program = ocdBuildProgramFromFile(context,device_id,"bwa_hmm_opencl",NULL);
@@ -178,6 +182,7 @@ void init_cl()
 	CHECK_NULL_ERROR( _cl_kernel_sgemvt_kernel_naive, "_cl_kernel_sgemvt_kernel_naive");
 	CHECK_NULL_ERROR( _cl_kernel_sgemvn_kernel_naive, "_cl_kernel_sgemvn_kernel_naive");
 
+    LSB_Rec(0);
 }
 
 static int imax(int x, int y)
@@ -301,18 +306,25 @@ float dot_production(int n, cl_mem paramA, int offsetA, cl_mem paramB, int offse
 
 	/* for the sum reduction on CPU */
 	float *partialSum = (float*) memalign ( AOCL_ALIGNMENT,n * sizeof(float));
-
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	cl_mem partialSum_d;
 	partialSum_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * n, NULL, NULL);
 	CHECK_NULL_ERROR(commands, "partialSum_d");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	/* set partialSum_d to all zeros */
 	errNum = clEnqueueWriteBuffer(commands, partialSum_d, CL_TRUE, 0,  sizeof(float) * n, partialSum, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "partialSum_d Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "writing buffer partialSum_d");
 
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_s_dot_kernel_naive_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_s_dot_kernel_naive, 0, sizeof(int), &n);
 	errNum |= clSetKernelArg(_cl_kernel_s_dot_kernel_naive, 1, sizeof(cl_mem), &paramA);
 	errNum |= clSetKernelArg(_cl_kernel_s_dot_kernel_naive, 2, sizeof(int), &offsetA);
@@ -320,18 +332,25 @@ float dot_production(int n, cl_mem paramA, int offsetA, cl_mem paramB, int offse
 	errNum |= clSetKernelArg(_cl_kernel_s_dot_kernel_naive, 4, sizeof(int), &offsetB);
 	errNum |= clSetKernelArg(_cl_kernel_s_dot_kernel_naive, 5, sizeof(cl_mem), &partialSum_d);
 	CHKERR(errNum, "setting kernel _cl_kernel_s_dot_kernel_naive arguments");
+    LSB_Rec(0);
 
 	size_t globalWorkSize[1] = { blocks * threads };
 	size_t localWorkSize[1]  = { threads };
 
+    LSB_Set_Rparam_string("region", "__cl_kernel_s_dot_kernel_naive_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_s_dot_kernel_naive, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_s_dot_kernel_naive Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_s_dot_kernel_naive");
 
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 	errNum = clEnqueueReadBuffer(commands, partialSum_d, CL_TRUE, 0,  sizeof(float) * n, partialSum, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "partialSum_d Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "reading buffer partialSum_d");
@@ -376,6 +395,8 @@ void mat_vec_mul(char trans, int m, int n, cl_mem A, int lda, cl_mem x, int offs
 		   errNum = clEnqueueNDRangeKernel(_cl_commandQueue, _cl_kernel_sgemvt_kernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 		   CHKERR(errNum, "queuing kernel _cl_kernel_sgemvt_kernel for execution");
 		 */
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_sgemvt_kernel_naive_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_sgemvt_kernel_naive, 0, sizeof(int), &m);
 		errNum |= clSetKernelArg(_cl_kernel_sgemvt_kernel_naive, 1, sizeof(int), &n);
 		errNum |= clSetKernelArg(_cl_kernel_sgemvt_kernel_naive, 2, sizeof(cl_mem), &A);
@@ -385,12 +406,15 @@ void mat_vec_mul(char trans, int m, int n, cl_mem A, int lda, cl_mem x, int offs
 		errNum |= clSetKernelArg(_cl_kernel_sgemvt_kernel_naive, 6, sizeof(cl_mem), &y);
 		errNum |= clSetKernelArg(_cl_kernel_sgemvt_kernel_naive, 7, sizeof(int), &offsetY);
 		CHKERR(errNum, "setting kernel _cl_kernel_sgemvt_kernel_naive arguments");
-
+        LSB_Rec(0);
 		size_t globalWorkSize[1] = { MVMUL_BLOCK_NUM * MVMUL_BLOCK_SIZE };
 		size_t localWorkSize[1]  = { MVMUL_BLOCK_SIZE };
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_sgemvt_kernel_naive_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_sgemvt_kernel_naive, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(0);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_sgemvt_kernel_naive Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_sgemvt_kernel_naive for execution");
@@ -413,6 +437,8 @@ void mat_vec_mul(char trans, int m, int n, cl_mem A, int lda, cl_mem x, int offs
 		   errNum = clEnqueueNDRangeKernel(_cl_commandQueue, _cl_kernel_sgemvn_kernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 		   CHKERR(errNum, "queuing kernel _cl_kernel_sgemvn_kernel for execution");
 		 */
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_sgemvn_kernel_naive_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_sgemvn_kernel_naive, 0, sizeof(int), &m);
 		errNum |= clSetKernelArg(_cl_kernel_sgemvn_kernel_naive, 1, sizeof(int), &n);
 		errNum |= clSetKernelArg(_cl_kernel_sgemvn_kernel_naive, 2, sizeof(cl_mem), &A);
@@ -422,12 +448,16 @@ void mat_vec_mul(char trans, int m, int n, cl_mem A, int lda, cl_mem x, int offs
 		errNum |= clSetKernelArg(_cl_kernel_sgemvn_kernel_naive, 6, sizeof(cl_mem), &y);
 		errNum |= clSetKernelArg(_cl_kernel_sgemvn_kernel_naive, 7, sizeof(int), &offsetY);
 		CHKERR(errNum, "setting kernel _cl_kernel_sgemvn_kernel_naive arguments");
+        LSB_Rec(0);
 
 		size_t globalWorkSize[1] = { MVMUL_BLOCK_NUM * MVMUL_BLOCK_SIZE };
 		size_t localWorkSize[1]  = { MVMUL_BLOCK_SIZE };
-
+        
+        LSB_Set_Rparam_string("region", "_cl_kernel_sgemvn_kernel_naive_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_sgemvn_kernel_naive, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(0);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_sgemvn_kernel_naive Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_sgemvn_kernel_naive for execution");
@@ -463,6 +493,8 @@ float calc_alpha()
 	//                                                 alpha_d,
 	//                                                 ones_n_d,
 	//                                                 obs[0]);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_init_alpha_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_init_alpha_dev, 0, sizeof(cl_mem), &b_d);
 	errNum |= clSetKernelArg(_cl_kernel_init_alpha_dev, 1, sizeof(cl_mem), &pi_d);
 	errNum |= clSetKernelArg(_cl_kernel_init_alpha_dev, 2, sizeof(int), &nstates);
@@ -470,12 +502,16 @@ float calc_alpha()
 	errNum |= clSetKernelArg(_cl_kernel_init_alpha_dev, 4, sizeof(cl_mem), &ones_n_d);
 	errNum |= clSetKernelArg(_cl_kernel_init_alpha_dev, 5, sizeof(int), obs);
 	CHKERR(errNum, "setting kernel _cl_kernel_init_alpha_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_init_alpha_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_init_alpha_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_init_alpha_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_init_alpha_dev for execution");
+    LSB_Rec(0);
 
 	/* Sum alpha values to get scaling factor */
 	scale[0] = dot_production(nstates, alpha_d, 0, ones_n_d, 0);
@@ -485,14 +521,20 @@ float calc_alpha()
 	//                                                     alpha_d, 
 	//                                                     scale[0]);
 	int tmp = 0;
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_scale_alpha_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_scale_alpha_dev, 0, sizeof(int), &nstates);
 	errNum |= clSetKernelArg(_cl_kernel_scale_alpha_dev, 1, sizeof(cl_mem), &alpha_d);
 	errNum |= clSetKernelArg(_cl_kernel_scale_alpha_dev, 2, sizeof(int), &tmp);
 	errNum |= clSetKernelArg(_cl_kernel_scale_alpha_dev, 3, sizeof(float), scale);
 	CHKERR(errNum, "setting kernel _cl_kernel_scale_alpha_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "__cl_kernel_scale_alpha_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_scale_alpha_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_scale_alpha_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_scale_alpha_dev for execution");
@@ -519,16 +561,22 @@ float calc_alpha()
 		//                                                 alpha_d + offset_cur, 
 		//                                                 b_d, 
 		//                                                 obs[t]);
-
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_calc_alpha_dev_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_calc_alpha_dev, 0, sizeof(int), &nstates);
 		errNum |= clSetKernelArg(_cl_kernel_calc_alpha_dev, 1, sizeof(cl_mem), &alpha_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_alpha_dev, 2, sizeof(int), &offset_cur);
 		errNum |= clSetKernelArg(_cl_kernel_calc_alpha_dev, 3, sizeof(cl_mem), &b_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_alpha_dev, 4, sizeof(int), obs + t);
 		CHKERR(errNum, "setting kernel _cl_kernel_calc_alpha_dev arguments");
+        LSB_Rec(t);
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_calc_alpha_dev_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_calc_alpha_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(t);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_calc_alpha_dev Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_calc_alpha_dev for execution");
@@ -540,14 +588,20 @@ float calc_alpha()
 		// scale_alpha_dev<<<nblocks, threads_per_block>>>(nstates, 
 		//                                                alpha_d + offset_cur, 
 		//                                                 scale[t]);
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_scale_alpha_dev_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_scale_alpha_dev, 0, sizeof(int), &nstates);
 		errNum |= clSetKernelArg(_cl_kernel_scale_alpha_dev, 1, sizeof(cl_mem), &alpha_d);
 		errNum |= clSetKernelArg(_cl_kernel_scale_alpha_dev, 2, sizeof(int), &offset_cur);
 		errNum |= clSetKernelArg(_cl_kernel_scale_alpha_dev, 3, sizeof(float), scale + t);
 		CHKERR(errNum, "setting kernel _cl_kernel_scale_alpha_dev arguments");
+        LSB_Rec(t);
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_scale_alpha_dev_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_scale_alpha_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(t);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_scale_alpha_dev Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_scale_alpha_dev for execution");                                                
@@ -578,14 +632,20 @@ int calc_beta()
 	//                                                 ((length - 1) * nstates),
 	//                                                 scale[length - 1]);
 	offset  = ((length - 1) * nstates);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_init_beta_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_init_beta_dev, 0, sizeof(int), &nstates);
 	errNum |= clSetKernelArg(_cl_kernel_init_beta_dev, 1, sizeof(cl_mem), &beta_d);
 	errNum |= clSetKernelArg(_cl_kernel_init_beta_dev, 2, sizeof(int), &offset);
 	errNum |= clSetKernelArg(_cl_kernel_init_beta_dev, 3, sizeof(float), scale + length - 1);
 	CHKERR(errNum, "setting kernel _cl_kernel_init_beta_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_init_beta_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_init_beta_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_init_beta_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_init_beta_dev for execution");
@@ -601,6 +661,8 @@ int calc_beta()
 		//                                                 nstates, 
 		//                                                 obs[t+1], 
 		//                                                 t);
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_calc_beta_dev_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_calc_beta_dev, 0, sizeof(cl_mem), &beta_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_beta_dev, 1, sizeof(cl_mem), &b_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_beta_dev, 2, sizeof(float), scale + t);
@@ -608,9 +670,13 @@ int calc_beta()
 		errNum |= clSetKernelArg(_cl_kernel_calc_beta_dev, 4, sizeof(int), obs + t + 1);
 		errNum |= clSetKernelArg(_cl_kernel_calc_beta_dev, 5, sizeof(int), &t);
 		CHKERR(errNum, "setting kernel _cl_kernel_calc_beta_dev arguments");
+        LSB_Rec(t);
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_calc_beta_dev_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_calc_beta_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(t);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_calc_beta_dev Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_calc_beta_dev for execution");
@@ -642,8 +708,11 @@ void calc_gamma_sum()
 
 	// init to zeros
 	int *gamma_sum_zeros = (int*)calloc(nstates, sizeof(float));
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	errNum = clEnqueueWriteBuffer(commands, gamma_sum_d, CL_TRUE, 0, sizeof(float) * nstates, gamma_sum_zeros, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "gamma_sum_d Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "writing buffer gamma_sum_d");
@@ -657,15 +726,22 @@ void calc_gamma_sum()
 		// beta_d,
 		// nstates,
 		// t);
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_calc_gamma_dev_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_calc_gamma_dev, 0, sizeof(cl_mem), &gamma_sum_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_gamma_dev, 1, sizeof(cl_mem), &alpha_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_gamma_dev, 2, sizeof(cl_mem), &beta_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_gamma_dev, 3, sizeof(int), &nstates);
 		errNum |= clSetKernelArg(_cl_kernel_calc_gamma_dev, 4, sizeof(int), &t);
 		CHKERR(errNum, "setting kernel _cl_kernel_calc_gamma_dev arguments");
+        LSB_Rec(t);
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_calc_gamma_dev_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_calc_gamma_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(t);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_calc_gamma_dev Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_calc_gamma_dev for execution");
@@ -684,8 +760,12 @@ int calc_xi_sum()
 
 	// init to zeros
 	int *xi_sum_d_zeros = (int*)calloc(nstates * nstates, sizeof(float));
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	errNum = clEnqueueWriteBuffer(commands, xi_sum_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, xi_sum_d_zeros, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
+
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "xi_sum_d Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "writing buffer xi_sum_d");
@@ -716,6 +796,8 @@ int calc_xi_sum()
 		// nstates,
 		// obs[t+1],
 		// t);
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_calc_xi_dev_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_calc_xi_dev, 0, sizeof(cl_mem), &xi_sum_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_xi_dev, 1, sizeof(cl_mem), &a_d);
 		errNum |= clSetKernelArg(_cl_kernel_calc_xi_dev, 2, sizeof(cl_mem), &b_d);
@@ -726,9 +808,13 @@ int calc_xi_sum()
 		errNum |= clSetKernelArg(_cl_kernel_calc_xi_dev, 7, sizeof(int), obs + t + 1);
 		errNum |= clSetKernelArg(_cl_kernel_calc_xi_dev, 8, sizeof(int), &t);
 		CHKERR(errNum, "setting kernel _cl_kernel_calc_xi_dev arguments");
+        LSB_Rec(t);
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_calc_xi_dev_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_calc_xi_dev, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(t);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_calc_xi_dev Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_calc_xi_dev for execution");
@@ -765,19 +851,25 @@ int estimate_a()
 	// sum_ab,
 	// nstates,
 	// length);
-	errNum  = clSetKernelArg(_cl_kernel_est_a_dev, 0, sizeof(cl_mem), &a_d);
-	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 1, sizeof(cl_mem), &alpha_d);
-	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 2, sizeof(cl_mem), &beta_d);
-	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 3, sizeof(cl_mem), &xi_sum_d);
-	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 4, sizeof(cl_mem), &gamma_sum_d);
-	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 5, sizeof(float), &sum_ab);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_est_a_dev_arguments");
+    LSB_Res();
+    errNum  = clSetKernelArg(_cl_kernel_est_a_dev, 0, sizeof(cl_mem), &a_d);
+    errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 1, sizeof(cl_mem), &alpha_d);
+    errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 2, sizeof(cl_mem), &beta_d);
+    errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 3, sizeof(cl_mem), &xi_sum_d);
+    errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 4, sizeof(cl_mem), &gamma_sum_d);
+    errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 5, sizeof(float), &sum_ab);
 	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 6, sizeof(int), &nstates);
 	errNum |= clSetKernelArg(_cl_kernel_est_a_dev, 7, sizeof(int), &length);
 	CHKERR(errNum, "setting kernel _cl_kernel_est_a_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_est_a_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_est_a_dev, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_est_a_dev Kernel", ocdTempTimer)
+	LSB_Rec(0);
+    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_est_a_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_est_a_dev for execution");
 
@@ -792,13 +884,19 @@ int estimate_a()
 	// scale_a_dev<<<grid, threads>>>( a_d,
 	// c_d,
 	// nstates);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_scale_a_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_scale_a_dev, 0, sizeof(cl_mem), &a_d);
 	errNum |= clSetKernelArg(_cl_kernel_scale_a_dev, 1, sizeof(cl_mem), &c_d);
 	errNum |= clSetKernelArg(_cl_kernel_scale_a_dev, 2, sizeof(int), &nstates);
 	CHKERR(errNum, "setting kernel _cl_kernel_scale_a_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_scale_a_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_scale_a_dev, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_scale_a_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_scale_a_dev for execution");
@@ -818,8 +916,11 @@ int estimate_b()
 
 	// init to zeros
 	int *b_d_zeros = (int*)calloc(nstates * nsymbols, sizeof(float));
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	errNum = clEnqueueWriteBuffer(commands, b_d, CL_TRUE, 0, sizeof(float) * nstates * nsymbols, b_d_zeros, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "b_d Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "writing buffer b_d");
@@ -831,7 +932,6 @@ int estimate_b()
 
 	size_t globalWorkSize[2] = { grid_x * BLOCK_DIM, grid_y * BLOCK_DIM };
 	size_t localWorkSize[2]  = { BLOCK_DIM, BLOCK_DIM };
-
 
 	for (t = 0; t < length; t++) {
 
@@ -848,6 +948,8 @@ int estimate_b()
 		// nsymbols, 
 		// obs[t], 
 		// t);
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_acc_b_dev_arguments");
+        LSB_Res();
 		errNum  = clSetKernelArg(_cl_kernel_acc_b_dev, 0, sizeof(cl_mem), &b_d);
 		errNum |= clSetKernelArg(_cl_kernel_acc_b_dev, 1, sizeof(cl_mem), &alpha_d);
 		errNum |= clSetKernelArg(_cl_kernel_acc_b_dev, 2, sizeof(cl_mem), &beta_d);
@@ -857,9 +959,13 @@ int estimate_b()
 		errNum |= clSetKernelArg(_cl_kernel_acc_b_dev, 6, sizeof(int), obs + t);
 		errNum |= clSetKernelArg(_cl_kernel_acc_b_dev, 7, sizeof(int), &t);
 		CHKERR(errNum, "setting kernel _cl_kernel_acc_b_dev arguments");
+        LSB_Rec(t);
 
+        LSB_Set_Rparam_string("region", "_cl_kernel_acc_b_dev_kernel");
+        LSB_Res();
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_acc_b_dev, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(t);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_acc_b_dev Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errNum, "queuing kernel _cl_kernel_acc_b_dev for execution");
@@ -868,14 +974,20 @@ int estimate_b()
 
 	/* Re-estimate B values */
 	// est_b_dev<<<grid, threads>>>(b_d, gamma_sum_d, nstates, nsymbols);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_est_b_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_est_b_dev, 0, sizeof(cl_mem), &b_d);
 	errNum |= clSetKernelArg(_cl_kernel_est_b_dev, 1, sizeof(cl_mem), &gamma_sum_d);
 	errNum |= clSetKernelArg(_cl_kernel_est_b_dev, 2, sizeof(int), &nstates);
 	errNum |= clSetKernelArg(_cl_kernel_est_b_dev, 3, sizeof(int), &nsymbols);
 	CHKERR(errNum, "setting kernel _cl_kernel_est_b_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_est_b_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_est_b_dev, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_est_b_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_est_b_dev for execution");
@@ -893,14 +1005,20 @@ int estimate_b()
 	// c_d,
 	// nstates,
 	// nsymbols);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_scale_b_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_scale_b_dev, 0, sizeof(cl_mem), &b_d);
 	errNum |= clSetKernelArg(_cl_kernel_scale_b_dev, 1, sizeof(cl_mem), &c_d);
 	errNum |= clSetKernelArg(_cl_kernel_scale_b_dev, 2, sizeof(int), &nstates);
 	errNum |= clSetKernelArg(_cl_kernel_scale_b_dev, 3, sizeof(int), &nsymbols);
 	CHKERR(errNum, "setting kernel _cl_kernel_scale_b_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_scale_b_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_scale_b_dev, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_scale_b_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_scale_b_dev for execution");
@@ -931,15 +1049,21 @@ int estimate_pi()
 	// beta_d, 
 	// sum_ab, 
 	// nstates);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_est_pi_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_est_pi_dev, 0, sizeof(cl_mem), &pi_d);
 	errNum |= clSetKernelArg(_cl_kernel_est_pi_dev, 1, sizeof(cl_mem), &alpha_d);
 	errNum |= clSetKernelArg(_cl_kernel_est_pi_dev, 2, sizeof(cl_mem), &beta_d);
 	errNum |= clSetKernelArg(_cl_kernel_est_pi_dev, 3, sizeof(float), &sum_ab);
 	errNum |= clSetKernelArg(_cl_kernel_est_pi_dev, 4, sizeof(int), &nstates);
 	CHKERR(errNum, "setting kernel _cl_kernel_est_pi_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_est_pi_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_est_pi_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_est_pi_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "queuing kernel _cl_kernel_est_pi_dev for execution");
@@ -993,6 +1117,8 @@ float run_hmm_bwa(  Hmm *hmm,
 	}
 
 	/* Allocate device memory */
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	a_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * nstates, NULL, NULL);
 	b_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates * nsymbols, NULL, NULL);
 	pi_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates, NULL, NULL);
@@ -1003,6 +1129,7 @@ float run_hmm_bwa(  Hmm *hmm,
 	c_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates, NULL, NULL);
 	ones_n_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates, NULL, NULL);
 	ones_s_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nsymbols, NULL, NULL);
+    LSB_Rec(0);
 
 	CHECK_NULL_ERROR( a_d, "Error creating buffer for a_d");
 	CHECK_NULL_ERROR( b_d, "Error creating buffer for  b_d");
@@ -1016,6 +1143,8 @@ float run_hmm_bwa(  Hmm *hmm,
 	CHECK_NULL_ERROR( ones_s_d, "Error creating buffer for  ones_s_d");
 
 	/* Transfer device data */
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	errNum = clEnqueueWriteBuffer(commands, a_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, a, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "a_d Data Copy", ocdTempTimer)
@@ -1033,6 +1162,7 @@ float run_hmm_bwa(  Hmm *hmm,
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "pi_d Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "Error writing buffer pi_d");
+    LSB_Rec(0);
 
 	/* Initialize ones array */
 	threads_per_block = MAX_THREADS_PER_BLOCK;
@@ -1041,12 +1171,18 @@ float run_hmm_bwa(  Hmm *hmm,
 	size_t localWorkSize[1]  = { threads_per_block };
 
 	// init_ones_dev<<<nblocks, threads_per_block>>>(ones_s_d, nsymbols);
+    LSB_Set_Rparam_string("region", "setting__cl_kernel_init_ones_dev_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(_cl_kernel_init_ones_dev, 0, sizeof(cl_mem), &ones_s_d);
 	errNum |= clSetKernelArg(_cl_kernel_init_ones_dev, 1, sizeof(int), &nsymbols);
 	CHKERR(errNum, "Error setting kernel _cl_kernel_init_ones_dev arguments");
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "_cl_kernel_init_ones_dev_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_init_ones_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
+    LSB_Rec(0);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_init_ones_dev Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errNum, "Error queuing kernel _cl_kernel_init_ones_dev for execution");
@@ -1092,6 +1228,8 @@ float run_hmm_bwa(  Hmm *hmm,
 
 	}
 
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 	/* Copy device variables back to host */
 	errNum = clEnqueueReadBuffer(commands, a_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, a, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -1112,6 +1250,8 @@ float run_hmm_bwa(  Hmm *hmm,
 	CHKERR(errNum, "Error reading buffer pi_d");
 
 	clFinish(commands);
+    LSB_Rec(0);
+
 	/* Free memory */
 	free(scale);
 
@@ -1391,7 +1531,7 @@ int main(int argc, char *argv[])
 
 		// printf("\n");
 	}
-
+    LSB_Finalize();
 	ocd_finalize();//KK
 	return;
 }

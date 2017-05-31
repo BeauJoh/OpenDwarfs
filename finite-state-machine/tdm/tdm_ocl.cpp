@@ -16,6 +16,8 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
+
 #define AOCL_ALIGNMENT 64
 unsigned int numCandidates;
 int episodesCulled = 0;
@@ -187,6 +189,8 @@ void setupGpu()
 
 	cl_int errcode;
 
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	d_events=clCreateBuffer(context, CL_MEM_READ_WRITE, eventSize * sizeof(ubyte), NULL, &errcode);
 	d_times=clCreateBuffer(context, CL_MEM_READ_WRITE, eventSize * sizeof(float), NULL, &errcode);
 	d_episodeCandidates=clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates* sizeof(ubyte), NULL, &errcode);
@@ -194,6 +198,7 @@ void setupGpu()
 	d_episodeSupport=clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(uint), NULL, &errcode);
 	d_startRecords=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint2), NULL, &errcode);
 	d_foundRecords=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint2), NULL, &errcode);
+
 	/*
 	h_startRecords = (cl_uint2*)malloc(MaxRecords*sizeof(cl_uint2));
 	h_foundRecords = (cl_uint2*)malloc(MaxRecords*sizeof(cl_uint2));
@@ -203,7 +208,10 @@ void setupGpu()
 	// Variables for compaction
 	d_recCount=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint), NULL, &errcode);
 	d_recOffSet=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint), NULL, &errcode);
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
 	errcode = clEnqueueWriteBuffer(commands, d_events, CL_TRUE, 0, eventSize, (void *) h_events, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "d_events Copy", ocdTempTimer)
@@ -227,6 +235,7 @@ void setupGpu()
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "d_episodeIntervals Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue write buffer!");
+    LSB_Rec(0);
 
 }
 
@@ -258,18 +267,22 @@ void runTest( int argc, char** argv) {
 
 	ocd_init(&argc, &argv, NULL);
 	ocd_initCL();
-	
 	if ( argc != 5 ) {
 		printf("Usage: tdm_ocl <data path> <intervals path> <episodes path> <threads>\n");
 		return;
 	}
 
+    LSB_Init("tdm",0);	
+
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
  	clProgram = ocdBuildProgramFromFile(context,device_id,"tdm_ocl_kernel", NULL);
 
 	clKernel_writeCandidates = clCreateKernel(clProgram, "writeCandidates", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
 	clKernel_countCandidates = clCreateKernel(clProgram, "countCandidates", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
+    LSB_Rec(0);
 
 	//************************
 
@@ -277,6 +290,9 @@ void runTest( int argc, char** argv) {
 	size_t localWorkSize[3];
 
 	unsigned int num_threads = atoi(argv[4]);
+
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
 
 	dumpFile = fopen( "tdm-gpu-csw.txt", "w" );
 
@@ -294,6 +310,8 @@ void runTest( int argc, char** argv) {
 	h_episodeSupport = (uint*)memalign ( AOCL_ALIGNMENT,maxCandidates*sizeof(float) );
 
 	loadCandidateEpisodes(argv[3], maxLevel);
+    LSB_Rec(0);
+
 	setupGpu();
 
 	indexEvents();
@@ -307,8 +325,11 @@ void runTest( int argc, char** argv) {
 
 		ubyte* currentEpisode = &h_episodeCandidates[idx*maxLevel];
 
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+        LSB_Res();
 		errcode = clEnqueueWriteBuffer(commands, d_startRecords, CL_TRUE, 0, h_eventCounts[currentEpisode[maxLevel-1]-start]*sizeof(cl_uint2), (void *) h_eventIndex[currentEpisode[maxLevel-1]-start], 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(idx);
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "d_startRecords Copy", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue write buffer!");
@@ -328,7 +349,8 @@ void runTest( int argc, char** argv) {
 
 			//printf("Starting with %d records and blockCount=%d, localWorkSize[0]=%d globalWorkSize[0]=%d\n", h_foundCount, blockCount, localWorkSize[0], globalWorkSize[0]);
 			// Count how many to write
-
+            LSB_Set_Rparam_string("region", "setting_clKernel_countCandidates_arguments");
+            LSB_Res();
 			errcode = clSetKernelArg(clKernel_countCandidates, 0, sizeof(ubyte), (void *) &currentEpisode[idx]);
 			errcode |= clSetKernelArg(clKernel_countCandidates, 1, sizeof(float), (void *) &temporalConstraint[0]);
 			errcode |= clSetKernelArg(clKernel_countCandidates, 2, sizeof(float), (void *) &temporalConstraint[1]);
@@ -338,9 +360,13 @@ void runTest( int argc, char** argv) {
 			errcode |= clSetKernelArg(clKernel_countCandidates, 6, sizeof(ubyte*), (void *) &d_events);
 			errcode |= clSetKernelArg(clKernel_countCandidates, 7, sizeof(float*), (void *) &d_times);
 			CHKERR(errcode, "Failed to set kernel arguments (1)!");
+            LSB_Rec(level);
 
+            LSB_Set_Rparam_string("region", "clKernel_countCandidates_kernel");
+            LSB_Res();
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_countCandidates, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(level);
 			CHKERR(errcode, "Failed to enqueue kernel clKernel_countCandidates!");			
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "countCandidates kernel", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
@@ -359,9 +385,12 @@ void runTest( int argc, char** argv) {
 				printf("Failed to allocate memory\n");
 				return;
 			}
-			
+		
+            LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+            LSB_Res();
 			errcode = clEnqueueReadBuffer(commands, d_recCount, CL_TRUE, 0, (h_foundCount)*sizeof(uint), (void *) buff1, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(level);
 			START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "d_recCount Copy", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
 			CHKERR(errcode, "Failed to enqueue read buffer!");
@@ -370,14 +399,18 @@ void runTest( int argc, char** argv) {
 			for (kl=0;kl<h_foundCount;kl++){
 					buff2[kl+1] = buff2[kl]+buff1[kl];
 			}
-			
+		
+            LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+            LSB_Res();
 			errcode = clEnqueueWriteBuffer(commands, d_recOffSet, CL_TRUE, 0, (h_foundCount+1)*sizeof(cl_uint), (void *) buff2, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(level);
 			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "d_recOffset Copy", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
 			CHKERR(errcode, "Failed to enqueue write buffer!");
 			
-						
+            LSB_Set_Rparam_string("region", "setting_clKernel_writeCandidates_arguments");
+            LSB_Res();
 			// Do the actual writing
 			errcode = clSetKernelArg(clKernel_writeCandidates, 0, sizeof(ubyte), (void *) &currentEpisode[idx]);
 			errcode |= clSetKernelArg(clKernel_writeCandidates, 1, sizeof(float), (void *) &temporalConstraint[0]);
@@ -389,9 +422,13 @@ void runTest( int argc, char** argv) {
 			errcode |= clSetKernelArg(clKernel_writeCandidates, 7, sizeof(ubyte*), (void *) &d_events);
 			errcode |= clSetKernelArg(clKernel_writeCandidates, 8, sizeof(float*), (void *) &d_times);
 			CHKERR(errcode, "Failed to set kernel arguments (2)!");
+            LSB_Rec(level);
 
+            LSB_Set_Rparam_string("region", "clKernel_writeCandidates_kernel");
+            LSB_Res();
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_writeCandidates, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+            LSB_Rec(level);
 			CHKERR(errcode, "Failed to enqueue kernel clKernel_writeCandidates!");
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "writeCandidates kernel", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
@@ -406,10 +443,14 @@ void runTest( int argc, char** argv) {
 			d_foundRecords = temp;
 			
 		}
-		
+
+        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+        LSB_Res();
 		// Copy back, and eliminate conflicts
 		errcode = clEnqueueReadBuffer(commands, d_startRecords, CL_TRUE, 0, h_foundCount*sizeof(cl_uint2), (void *) h_startRecords, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
+        LSB_Rec(idx);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "d_startRecords copy", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 
@@ -441,7 +482,7 @@ void runTest( int argc, char** argv) {
 	clReleaseProgram(clProgram);
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
-
+    LSB_Finalize();
 	ocd_finalize();
 
 }
