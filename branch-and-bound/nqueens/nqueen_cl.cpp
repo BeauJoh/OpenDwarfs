@@ -10,6 +10,7 @@
 #include <cstring>
 #include "nqueen_cl.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 
 //#define CHECK_ERROR(err) { if(err != CL_SUCCESS) throw CLError(err, __LINE__); }
 
@@ -142,6 +143,8 @@ void NQueenSolver::InitKernels(int i, int block_size)
 		m_SolverInfo[i].m_bEnableAtomics = false;
 	}
 
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
 	// load program
     std::ifstream in;
 	in.open("kernels_nqueens.cl", std::ifstream::in);
@@ -158,6 +161,7 @@ void NQueenSolver::InitKernels(int i, int block_size)
 	cl_uint units;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &units, 0);
 	CHECK_ERROR(err);
+    LSB_Rec(0);
 
 	err = clGetKernelWorkGroupInfo(m_SolverInfo[i].m_NQueen, device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &m_SolverInfo[i].m_nMaxWorkItems, 0);
 	CHECK_ERROR(err);
@@ -293,6 +297,7 @@ inline int bit_scan(unsigned int x)
 
 long long NQueenSolver::Compute(int board_size, long long* unique)
 {
+
 	// estimate amount of levels need to be computed on the device
 	long long total = 10000000000LL;
 	total /= 10;	// for atomics
@@ -337,7 +342,8 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 	}
 
 	max_pitch = (max_threads + 15) & ~0xf;
-
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
 	for(int i = 0; i < threads.size(); i++) { //Will be always 1 in OpenDwarfs
 		// create data buffer
 		if(m_SolverInfo[i].m_ParamBuffer != 0) clReleaseMemObject(m_SolverInfo[i].m_ParamBuffer);
@@ -359,6 +365,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 
 		m_SolverInfo[i].m_TotalTime = 0;
 	}
+    LSB_Rec(0);
 
 	std::vector<unsigned int> mask_vector(max_pitch * (4 + 32));
 	std::vector<unsigned int> results(max_pitch * 4);
@@ -418,6 +425,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 			forbidden_written[k] = false;
 		}
 		while(i >= 0) {
+            LSB_Set_Rparam_int("j", j);
 			if(j == 0) {
 				if(i >= 1) {
 					unsigned int m = ms[i] | (i + 1 < idx ? 2 : 0);
@@ -451,6 +459,8 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 				}
 				total_size++;
 				if(total_size == max_threads) {
+                    LSB_Set_Rparam_string("region", "host_side_setup");
+                    LSB_Res();
 //					std::cerr << "device A[" << device_idx << "]: " << clock() << "\n";
 //					if(has_data) {
 //						err = clEnqueueReadBuffer(m_Queue, result_buffer, CL_TRUE, 0, threads * sizeof(int) * 2, &results[0], 0, 0, 0);
@@ -502,11 +512,12 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 
 						// Sleep(1);
 					}
-					
+				    LSB_Rec(i);
 					
 					if(ocdTempEvent != 0) {
 //						std::cerr << "get data from device[" << device_idx << "]: " << clock() << "\n";
-
+                        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+                        LSB_Res();
 						// get data from the device
 						err = clEnqueueReadBuffer(m_SolverInfo[device_idx].m_Queue, m_SolverInfo[device_idx].m_ResultBuffer, CL_FALSE, 0, max_pitch * sizeof(int) * 4, &results[0], 0, NULL, &ocdTempEvent);
 						clFinish(m_SolverInfo[device_idx].m_Queue);
@@ -514,6 +525,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
                 				END_TIMER(ocdTempTimer)
                 				CHKERR(err, "Error in reading m_ResultsBuffer");
 						//CHECK_ERROR(err);
+                        LSB_Rec(i);
 
 						//if(m_bProfiling) {
 						//	cl_ulong start, end;
@@ -523,7 +535,8 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 						//	m_SolverInfo[device_idx].m_TotalTime += end - start;
 //							std::cerr << "device time: " << end - start << "\n";
 						//}
-
+                        LSB_Set_Rparam_string("region", "host_side_setup");
+                        LSB_Res();
 						clReleaseEvent(ocdTempEvent);
 						ocdTempEvent = 0;
 
@@ -535,6 +548,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 							solutions += results[k];
 							unique_solutions += results[k + max_pitch];
 						}
+                        LSB_Rec(i);
 					}
 
 //					std::cerr << "device [" << device_idx << "]: " << " prepare launch: " << clock() << "\n";
@@ -545,6 +559,9 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 					cl_int arg_level = level;
 					cl_int arg_threads = m_SolverInfo[device_idx].m_bEnableVectorize ? (threads[device_idx] + vec_size - 1) / vec_size : threads[device_idx];
 					cl_int arg_pitch = m_SolverInfo[device_idx].m_bEnableVectorize ? max_pitch / vec_size : max_pitch;
+
+                    LSB_Set_Rparam_string("region", "setting_queen_arguments");
+                    LSB_Res();
 					err = clSetKernelArg(queen, 0, sizeof(cl_int), &arg_board_size);
 					err |= clSetKernelArg(queen, 1, sizeof(cl_int), &arg_level);
 					err |= clSetKernelArg(queen, 2, sizeof(cl_int), &arg_threads);
@@ -556,7 +573,10 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 						err |= clSetKernelArg(queen, 7, sizeof(cl_mem), &m_SolverInfo[device_idx].m_GlobalIndex);
 					}
 					CHECK_ERROR(err);
+                    LSB_Rec(i);
 
+                    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+                    LSB_Res();
 					if(!forbidden_written[device_idx]) {
 						err = clEnqueueWriteBuffer(m_SolverInfo[device_idx].m_Queue, m_SolverInfo[device_idx].m_ForbiddenBuffer, CL_FALSE, 0, (level + 1) * sizeof(int), forbidden + board_size - level - 1, 0, 0, &ocdTempEvent);
 						clFinish(m_SolverInfo[device_idx].m_Queue);
@@ -590,7 +610,10 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 						CHKERR(err, "Error in writing m_GlobalIndex");
 						//CHECK_ERROR(err);
 					}
+                    LSB_Rec(i);
 
+                    LSB_Set_Rparam_string("region", "queen_kernel");
+                    LSB_Res();
 					if(ocdTempEvent != 0) clReleaseEvent(ocdTempEvent);
 					err = clEnqueueNDRangeKernel(m_SolverInfo[device_idx].m_Queue, queen, 1, 0, work_dim, group_dim, 0, 0, &ocdTempEvent);
                 			clFinish(m_SolverInfo[device_idx].m_Queue);
@@ -598,6 +621,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
                 			END_TIMER(ocdTempTimer)
 					CHKERR(err, "Launch kernel error");
 					//CHECK_ERROR(err);
+                    LSB_Rec(i);
 
 					err = clFlush(m_SolverInfo[device_idx].m_Queue);
 					CHECK_ERROR(err);
@@ -703,10 +727,12 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 			
 			if(ocdTempEvent != 0) {
 //				std::cerr << "get data from device[" << device_idx << "]: " << clock() << "\n";
-
+                LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+                LSB_Res();
 				// get data from the device
 				err = clEnqueueReadBuffer(m_SolverInfo[device_idx].m_Queue, m_SolverInfo[device_idx].m_ResultBuffer, CL_FALSE, 0, max_pitch * sizeof(int) * 4, &results[0], 0, NULL, &ocdTempEvent);
 				clFinish(m_SolverInfo[device_idx].m_Queue);
+                LSB_Rec(total_size);
         			START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "m_ResultBuffer Copy", ocdTempTimer)
         			END_TIMER(ocdTempTimer)
 				CHKERR(err, "Error in reading m_ResultsBuffer");
@@ -743,6 +769,9 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 			int t_size = total_size > threads[device_idx] ? threads[device_idx] : total_size;
 			cl_int arg_threads = m_SolverInfo[device_idx].m_bEnableVectorize ? (t_size + vec_size - 1) / vec_size : t_size;
 			cl_int arg_pitch = m_SolverInfo[device_idx].m_bEnableVectorize ? max_pitch / vec_size : max_pitch;
+
+            LSB_Set_Rparam_string("region", "setting_queen_arguments");
+            LSB_Res();
 			err = clSetKernelArg(queen, 0, sizeof(cl_int), &arg_board_size);
 			err |= clSetKernelArg(queen, 1, sizeof(cl_int), &arg_level);
 			err |= clSetKernelArg(queen, 2, sizeof(cl_int), &arg_threads);
@@ -754,7 +783,10 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 				err |= clSetKernelArg(queen, 7, sizeof(cl_mem), &m_SolverInfo[device_idx].m_GlobalIndex);
 			}
 			CHECK_ERROR(err);
+            LSB_Rec(total_size);
 
+            LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+            LSB_Res();
 			if(!forbidden_written[device_idx]) {
 				err = clEnqueueWriteBuffer(m_SolverInfo[device_idx].m_Queue, m_SolverInfo[device_idx].m_ForbiddenBuffer, CL_FALSE, 0, (level + 1) * sizeof(int), forbidden + board_size - level - 1, 0, 0, &ocdTempEvent);
 				clFinish(m_SolverInfo[device_idx].m_Queue);
@@ -798,14 +830,17 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 				CHKERR(err, "Error in writing m_GlobalIndex");
 				//CHECK_ERROR(err);
 			}
+            LSB_Rec(total_size);
 
+            LSB_Set_Rparam_string("region", "queen_kernel");
+            LSB_Res();
 			if(ocdTempEvent != 0) clReleaseEvent(ocdTempEvent);
 			err = clEnqueueNDRangeKernel(m_SolverInfo[device_idx].m_Queue, queen, 1, 0, work_dim, group_dim, 0, 0, &ocdTempEvent);
             		clFinish(m_SolverInfo[device_idx].m_Queue);
             		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "nqueen Kernels", ocdTempTimer)
             		END_TIMER(ocdTempTimer)
 			CHKERR(err, "Launch kernel error");
-
+            LSB_Rec(total_size);
 			err = clFlush(m_SolverInfo[device_idx].m_Queue);
 			CHECK_ERROR(err);
 
@@ -896,12 +931,14 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 		}
 		else {
 		
-		
+            LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+            LSB_Res();
 
 			int idx=0;
 			// get data from the device
 			err = clEnqueueReadBuffer(m_SolverInfo[idx].m_Queue, m_SolverInfo[idx].m_ResultBuffer, CL_FALSE, 0, max_pitch * sizeof(int) * 4, &results[0], 0, NULL, &ocdTempEvent);
 			clFinish(m_SolverInfo[device_idx].m_Queue);
+            LSB_Rec(0);
 	        	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "m_ResultBuffer Copy", ocdTempTimer)
         		END_TIMER(ocdTempTimer)
 			CHKERR(err, "Error in reading m_ResultsBuffer");

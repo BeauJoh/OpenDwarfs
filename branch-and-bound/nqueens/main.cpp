@@ -10,6 +10,7 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 #include "nqueen_cpu.h"
 #include "nqueen_cl.h"
 #include <iostream>
@@ -43,6 +44,7 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
+    LSB_Init("nqueens",0);
 	// handle options
 	bool force_cpu = false;
 	//bool use_clcpu = false;
@@ -223,6 +225,7 @@ int main(int argc, char** argv)
 					}
 				}
 			}
+            LSB_Set_Rparam_int("board_size",board_size);
 
 			//start_time = std::clock();
 			solutions = nqueen.Compute(board_size, &unique_solutions);
@@ -252,7 +255,7 @@ int main(int argc, char** argv)
 
 		clReleaseContext(context);
 	}
-
+    LSB_Finalize();
 	std::cerr << board_size << "-queen has " << solutions << " solutions (" << unique_solutions << " unique)\n";
 	//std::cerr << "Time used: " << std::setprecision(3) << static_cast<double>(end_time - start_time) / CLOCKS_PER_SEC << "s\n";
 
