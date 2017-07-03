@@ -129,7 +129,7 @@ papi_envs = [
               'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_BR_MSP')},
 #Branch Misprediction Ratio:
 #PAPI_BR_INS PAPI_BR_MSP
-             {'name':'branch_mispredictions_ratio',
+             {'name':'branch_misprediction_ratio',
               'parameters':GeneratePAPIParameters('PAPI_BR_INS', 'PAPI_BR_MSP')}
             ]
 
