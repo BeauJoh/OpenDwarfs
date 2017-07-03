@@ -317,10 +317,11 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHKERR(errcode, "Failed to enqueue kernel!");
 	errcode = clFinish(commands);
+    LSB_Rec(0);
+
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to clFinish!");
-    LSB_Rec(0);
 
 	/* copy back membership (device to host) */
     LSB_Set_Rparam_string("region", "device_side_d2h_copy");

@@ -121,9 +121,14 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
     /* randomly pick cluster centers */
     for (i=0; i<nclusters && initial_points >= 0; i++) {
 		//n = (int)rand() % initial_points;		
+        //printf("creation n = %d\n",n);
 		
-        for (j=0; j<nfeatures; j++)
+        //printf("initial[%i] = %d\n",n,initial[n]);
+        for (j=0; j<nfeatures; j++){
             clusters[i][j] = feature[initial[n]][j];	// remapped
+            //printf("cluster[%i][%i] = %f\n",i,j,clusters[i][j]);
+
+        }
 
 		/* swap the selected index to the end (not really necessary,
 		   could just move the end up) */
@@ -149,7 +154,6 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 	/* iterate until convergence */
 	do {
         LSB_Set_Rparam_int("iteration_number_hint_until_convergence", c);
-
         delta = 0.0;
 		// CUDA
 		delta = (float) kmeansCuda(feature,			/* in: [npoints][nfeatures] */
@@ -161,7 +165,15 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 								   new_centers_len,	/* out: number of points in each cluster */
 								   new_centers		/* sum of points in each cluster */
 								   );
-
+        int i;
+        for (i= 0; i < 5; i++){
+            printf("iteration #%i\t nfeatures = %i\t nclusters = %d\tnew_centers_len %i = %d\n",
+                    c,
+                    nfeatures,
+                    nclusters,
+                    i,
+                    new_centers_len[i]);
+        }
 		/* replace old cluster centers with new_centers */
 		/* CPU side of reduction */
 		for (i=0; i<nclusters; i++) {

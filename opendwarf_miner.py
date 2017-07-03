@@ -3,7 +3,7 @@ from opendwarf_miner_utils import *
 
 #Benchmark parameters:
 kmeans = {'name':'kmeans',
-          'default':'-i ../test/dense-linear-algebra/kmeans/204800.txt',
+          'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',#'204800.txt',
           'full name':'K-Means Clustering'}
 lud = {'name':'lud',
        'default':'-i ../test/dense-linear-algebra/lud/3072.dat',
@@ -70,48 +70,83 @@ gpu_parameters = GenerateDeviceParameters(2,0,1)
 #RunApplication(kmeans,cpu_parameters,50,papi_env)
 #StoreRun(kmeans,'kmeans_default_l1_cache_misses')
 
-
-#Most common metrics that effect performance as PAPI events:
+##Most common metrics that effect performance as PAPI events:
+papi_envs = [
+#Time (not a PAPI event, so just use whatever is the default)
+             {'name':'time',
+              'parameters':''},
 #Instructions per cycle (IPC)
 #PAPI_TOT_CYC, PAPI_TOT_INS
-papi_envs = [{'name':'instructions_per_cycle',
+             {'name':'instructions_per_cycle',
               'parameters':GeneratePAPIParameters('PAPI_TOT_CYC', 'PAPI_TOT_INS')},
-#L1 Cache
+#L1 Data Cache Request Rate
+#PAPI_TOT_INS, PAPI_L1_DCA
+             {'name':'L1_data_cache_request_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_L1_DCA')},
+#L1 Data Cache Miss Rate
+#PAPI_TOT_INS, PAPI_L1_DCM
+             {'name':'L1_data_cache_miss_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_L1_DCM')},
+#L1 Data Cache Miss Ratio
 #PAPI_L1_DCA PAPI_L1_DCM
-             {'name':'L1_cache',
+             {'name':'L1_data_cache_miss_ratio',
               'parameters':GeneratePAPIParameters('PAPI_L1_DCA', 'PAPI_L1_DCM')},
-#L2 Cache
+#L2 Data Cache Request Rate
+#PAPI_TOT_INS PAPI_L2_DCA
+             {'name':'L2_data_cache_request_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_L2_DCA')},
+#L2 Data Cache Miss Rate
+#PAPI_TOT_INS PAPI_L2_DCM
+             {'name':'L2_data_cache_miss_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_L2_DCM')},
+#L2 Data Cache Miss Ratio
 #PAPI_L2_DCA PAPI_L2_DCM
-             {'name':'L2_cache',
+             {'name':'L2_data_cache_miss_ratio',
               'parameters':GeneratePAPIParameters('PAPI_L2_DCA', 'PAPI_L2_DCM')},
-#L3 Cache (can only use total cache instead of data cache events)
+#L3 Total Cache Request Rate
+#PAPI_TOT_INS PAPI_L3_TCA
+             {'name':'L3_total_cache_request_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_L3_TCA')},
+#L3 Total Cache Miss Rate
+#PAPI_TOT_INS PAPI_L3_TCA
+             {'name':'L3_total_cache_miss_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_L3_TCM')},
+#L3 Cache (can only use total cache instead of data cache events) Miss Ratio
 #PAPI_L3_TCA PAPI_L3_TCM
-             {'name':'L3_cache',
+             {'name':'L3_total_cache_miss_ratio',
               'parameters':GeneratePAPIParameters('PAPI_L3_TCA', 'PAPI_L3_TCM')},
 #Translation Lookaside Buffer Misses:
-#PAPI_TLB_DM PAPI_TLB_IM
-             {'name':'translation_lookaside_buffer_misses',
-              'parameters':GeneratePAPIParameters('PAPI_TLB_DM', 'PAPI_TLB_IM')},
-#Branch Mispredictions:
+#PAPI_TOT_INS PAPI_TLB_DM 
+             {'name':'data_translation_lookaside_buffer_miss_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_TLB_DM')},
+#Branch Rate:
+#PAPI_TOT_INS PAPI_BR_INS
+             {'name':'branch_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_BR_INS')},
+#Branch Misprediction Rate:
+#PAPI_TOT_INS PAPI_BR_INS
+             {'name':'branch_misprediction_rate',
+              'parameters':GeneratePAPIParameters('PAPI_TOT_INS', 'PAPI_BR_MSP')},
+#Branch Misprediction Ratio:
 #PAPI_BR_INS PAPI_BR_MSP
-             {'name':'branch_mispredictions',
+             {'name':'branch_mispredictions_ratio',
               'parameters':GeneratePAPIParameters('PAPI_BR_INS', 'PAPI_BR_MSP')}
             ]
 
 #so to find the cache performance steps of kmeans on i7 960@dynamic frequency,
 #over the range of 1.60GHz-3.20GHz:
 for papi_env in papi_envs:
-    RunApplication(kmeans,cpu_parameters,50,papi_env['parameters'])
+    RunApplication(kmeans,cpu_parameters,10,papi_env['parameters'])
     StoreRun(kmeans,'results/kmeans_default_'+papi_env['name'])
 
 #increasing the maximum number of clusters to find increases the amount of
 #computation and thus the run time
-for max_clusters in range(1,12):
-    for papi_env in papi_envs:
-        RunApplicationWithArguments(kmeans,
-                                    kmeans['default']+" -n 1 -m "+str(max_clusters),
-                                    cpu_parameters,
-                                    30,#repeats
-                                    papi_env['parameters'])
-        StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
+#for max_clusters in range(1,12):
+#    for papi_env in papi_envs:
+#        RunApplicationWithArguments(kmeans,
+#                                    kmeans['default']+" -n 1 -m "+str(max_clusters),
+#                                    cpu_parameters,
+#                                    30,#repeats
+#                                    papi_env['parameters'])
+#        StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
 
