@@ -120,7 +120,7 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 
     /* randomly pick cluster centers */
     for (i=0; i<nclusters && initial_points >= 0; i++) {
-		//n = (int)rand() % initial_points;		
+		n = (int)rand() % initial_points;		
         //printf("creation n = %d\n",n);
 		
         //printf("initial[%i] = %d\n",n,initial[n]);

@@ -45,14 +45,19 @@ def RunApplicationWithArguments(application,arguments,parameters,repeats=1,papi_
     for i in range(0,repeats):
         if repeats != 1:
             print('iteration {}'.format(i))
-        process = subprocess.Popen(command,
-                                   shell=True,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        process.wait()
-        if process.returncode != 0:
-            DMError('Application {} failed with {}'.format(application['name'],
-                process.stderr.readlines()))
+        #process = subprocess.Popen(command,
+        #                           shell=True,
+        #                           stdout=subprocess.PIPE,
+        #                           stderr=subprocess.PIPE)
+        #
+        #process.wait()
+        #if process.returncode != 0:
+        #    DMError('Application {} failed with {}'.format(application['name'],
+        #        process.stderr.readlines()))
+        try: 
+            output = subprocess.check_output(command,shell=True)
+        except subprocess.CalledProcessError as e:
+            DMError('Application {} failed with {}'.format(application['name'], e.output))
 
 
 
@@ -67,5 +72,4 @@ def RunDwarf(dwarf,parameters):
     assert type(dwarf) is list, DMError('dwarf is not of type \'list\'')
     for application in dwarf:
         RunApplication(application,parameters)
-
 
