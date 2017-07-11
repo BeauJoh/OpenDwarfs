@@ -156,6 +156,10 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
         LSB_Set_Rparam_int("iteration_number_hint_until_convergence", c);
         delta = 0.0;
 		// CUDA
+#ifdef PROFILE_OUTER_LOOP
+        LSB_Set_Rparam_string("region", "kmeansCuda");
+        LSB_Res();
+#endif
 		delta = (float) kmeansCuda(feature,			/* in: [npoints][nfeatures] */
 								   nfeatures,		/* number of attributes for each point */
 								   npoints,			/* number of data points */
@@ -165,15 +169,9 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 								   new_centers_len,	/* out: number of points in each cluster */
 								   new_centers		/* sum of points in each cluster */
 								   );
-        int i;
-        for (i= 0; i < 5; i++){
-            printf("iteration #%i\t nfeatures = %i\t nclusters = %d\tnew_centers_len %i = %d\n",
-                    c,
-                    nfeatures,
-                    nclusters,
-                    i,
-                    new_centers_len[i]);
-        }
+#ifdef PROFILE_OUTER_LOOP
+        LSB_Rec(0);
+#endif
 		/* replace old cluster centers with new_centers */
 		/* CPU side of reduction */
 		for (i=0; i<nclusters; i++) {

@@ -58,15 +58,16 @@ def RunApplicationWithArguments(application,arguments,parameters,repeats=1,papi_
             output = subprocess.check_output(command,shell=True)
         except subprocess.CalledProcessError as e:
             DMError('Application {} failed with {}'.format(application['name'], e.output))
-
+            return False
+    return True
 
 
 def RunApplication(application,parameters,repeats=1,papi_env=None):
-    RunApplicationWithArguments(application,
-                                application['default'],
-                                parameters,
-                                repeats,
-                                papi_env)
+    return RunApplicationWithArguments(application,
+                                       application['default'],
+                                       parameters,
+                                       repeats,
+                                       papi_env)
 
 def RunDwarf(dwarf,parameters):
     assert type(dwarf) is list, DMError('dwarf is not of type \'list\'')

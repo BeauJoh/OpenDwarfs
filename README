@@ -86,6 +86,14 @@ When running experiments collected with LibSciBench and Papi, you can collect 2 
 The LibSciBench timing results will be placed into the appropriate local lsb file, for instance:
     $ ./lsb.gem.r0
 
+If using the LibSciBench with PAPI and using the RAPL module ensure the appropriate raple modules are enabled:
+    $ sudo modprobe msr
+    $ sudo chmod 666 /dev/cpu/*/msr
+    $ echo 0 | sudo tee /proc/sys/kernel/perf_event_paranoid
+
+and verify PAPI can use RAPL using the papi_native_avail tool provided in the PAPI distribution:
+    $ ./papi_native_avail -e rapl:::PP0_ENERGY:PACKAGE0
+
 Running
 -------
 

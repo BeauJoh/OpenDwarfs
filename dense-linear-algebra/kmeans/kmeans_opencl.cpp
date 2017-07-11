@@ -210,7 +210,6 @@ void deallocateMemory()
 main( int argc, char** argv) 
 {
 	// as done in the CUDA start/help document provided
-    printf("here here");
 	ocd_init(&argc, &argv, NULL);
 	setup(argc, argv);   
     printf("Setup done\n");
@@ -238,9 +237,10 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	int delta = 0;			/* if point has moved */
 	int i,j;				/* counters */
-
+#ifndef PROFILE_OUTER_LOOP
     LSB_Set_Rparam_string("region", "device_side_h2d_copy");
     LSB_Res();
+#endif
 	/* copy membership (host to device) */
 
 	errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
@@ -256,7 +256,9 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Cluster Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue write buffer!");
+#ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
+#endif
 	/* set up texture */
 	/*cudaChannelFormatDesc chDesc0 = cudaCreateChannelDesc<float>();
 	  t_features.filterMode = cudaFilterModePoint;   
@@ -284,10 +286,10 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	/* copy clusters to constant memory */
 	//cudaMemcpyToSymbol("c_clusters",clusters[0],nclusters*nfeatures*sizeof(float),0,cudaMemcpyHostToDevice);
-
+#ifndef PROFILE_OUTER_LOOP
     LSB_Set_Rparam_string("region", "setting_kernel_arguments");
     LSB_Res();
-
+#endif
 	/* setup execution parameters.
 	   changed to 2d (source code on NVIDIA CUDA Programming Guide) */
 	size_t localWorkSize[2] = {num_threads_perdim*num_threads_perdim, 1};
@@ -308,25 +310,29 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_deltas_d);
 #endif
 	CHKERR(errcode, "Failed to set kernel arg!");
+#ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
-
+#endif
 	/* execute the kernel */
+#ifndef PROFILE_OUTER_LOOP
     LSB_Set_Rparam_string("region", "kmeans_kernel");
     LSB_Res();
-
+#endif
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHKERR(errcode, "Failed to enqueue kernel!");
 	errcode = clFinish(commands);
+#ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
-
+#endif
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to clFinish!");
 
 	/* copy back membership (device to host) */
+#ifndef PROFILE_OUTER_LOOP
     LSB_Set_Rparam_string("region", "device_side_d2h_copy");
     LSB_Res();
-
+#endif
 	errcode = clEnqueueReadBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
@@ -360,8 +366,9 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 #endif
-
+#ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
+#endif
 
 	/* for each point, sum data points in each cluster
 	   and see if membership has changed:

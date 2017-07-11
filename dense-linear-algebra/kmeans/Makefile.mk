@@ -6,6 +6,7 @@
 #
 
 bin_PROGRAMS += kmeans
+bin_PROGRAMS += kmeans_profiling_outer_loop
 
 kmeans_SOURCES = dense-linear-algebra/kmeans/kmeans.c \
 	dense-linear-algebra/kmeans/cluster.c \
@@ -13,6 +14,14 @@ kmeans_SOURCES = dense-linear-algebra/kmeans/kmeans.c \
 	dense-linear-algebra/kmeans/kmeans_clustering.c \
 	dense-linear-algebra/kmeans/kmeans_opencl.cpp \
 	dense-linear-algebra/kmeans/rmse.c
+
+kmeans_profiling_outer_loop_SOURCES = dense-linear-algebra/kmeans/kmeans.c \
+	dense-linear-algebra/kmeans/cluster.c \
+	dense-linear-algebra/kmeans/getopt.c \
+	dense-linear-algebra/kmeans/kmeans_clustering.c \
+	dense-linear-algebra/kmeans/kmeans_opencl.cpp \
+	dense-linear-algebra/kmeans/rmse.c
+kmeans_profiling_outer_loop_CPPFLAGS = $(AM_CPPFLAGS) -DPROFILE_OUTER_LOOP
 
 all_local += kmeans-all-local
 exec_local += kmeans-exec-local

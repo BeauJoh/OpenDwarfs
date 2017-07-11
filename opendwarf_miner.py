@@ -62,7 +62,7 @@ finite_state_machines = [tdm]
 
 #System specific device parameters
 cpu_parameters = GenerateDeviceParameters(0,0,0)
-gpu_parameters = GenerateDeviceParameters(2,0,1)
+gpu_parameters = GenerateDeviceParameters(1,0,1)
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
@@ -140,12 +140,12 @@ papi_envs = [
               'parameters':GeneratePAPIParameters('rapl:::PP0_ENERGY:PACKAGE0', 'rapl:::DRAM_ENERGY:PACKAGE0')},
             ]
 
-#just get time (no papi events)
+##just get time (no papi events)
 #papi_env = papi_envs[0]
-#just get the energy
-papi_env = papi_envs[13]
-RunApplication(kmeans,cpu_parameters,5,papi_env['parameters'])
-StoreRun(kmeans,'results/kmeans_'+papi_env['name'])
+##just get the energy
+#papi_env = papi_envs[13]
+#RunApplication(kmeans,cpu_parameters,5,papi_env['parameters'])
+#StoreRun(kmeans,'results/kmeans_'+papi_env['name'])
 
 #so to find the cache performance steps of kmeans on i7 960@dynamic frequency,
 #over the range of 1.60GHz-3.20GHz:
@@ -155,22 +155,36 @@ StoreRun(kmeans,'results/kmeans_'+papi_env['name'])
 
 #increasing the maximum number of clusters to find increases the amount of
 #computation and thus the run time
-#for max_clusters in range(1,12):
-#    for papi_env in papi_envs:
-#        RunApplicationWithArguments(kmeans_sparse,
-#                                    kmeans_sparse['default']+" -n 1 -m "+str(max_clusters),
-#                                    cpu_parameters,
-#                                    1,#repeats
-#                                    papi_env['parameters'])
-#        StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
+selected_papi_envs = papi_envs
+#selected_papi_envs = []
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
+for max_clusters in range(1,15):
+    for papi_env in selected_papi_envs:
+        all_good = RunApplicationWithArguments(kmeans,
+                                               kmeans['default']+" -n 1 -m "+str(max_clusters),
+                                               cpu_parameters,
+                                               40,#repeats
+                                               papi_env['parameters'])
+        if all_good:
+            StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
+        else:
+            import sys
+            sys.exit()
 #kmeans strider: increase the size of matrix to find to cache spillover sizes
 #for n in range (0,25):
 #    for papi_env in papi_envs:
-#        RunApplicationWithArguments(kmeans,
-#                                    "-i ../test/dense-linear-algebra/kmeans/{}_34f.txt".format(2**n),
-#                                    gpu_parameters,
-#                                    1,#repeats
-#                                    papi_env['parameters'])
-#        StoreRun(kmeans,'results/kmeans_'+str(2**n)+"_sized_matrix_"+papi_env['name'])
+#        all_good = RunApplicationWithArguments(kmeans,
+#                                               "-i ../test/dense-linear-algebra/kmeans/{}_34f.txt".format(2**n),
+#                                               cpu_parameters,
+#                                               1,#repeats
+#                                               papi_env['parameters'])
+#        if all_good:
+#            StoreRun(kmeans,'results/kmeans_'+str(2**n)+"_sized_matrix_"+papi_env['name'])
+#        else:
+#            import sys
+#            sys.exit()
 
