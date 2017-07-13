@@ -5,6 +5,10 @@ from opendwarf_miner_utils import *
 kmeans = {'name':'kmeans',
           'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
           'full name':'K-Means Clustering'}
+kmeans_coarse_iteration_profile = {
+        'name':'kmeans_profiling_outer_loop',
+        'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
+        'full name':'K-Means Clustering'}
 kmeans_sparse = {'name':'kmeans',
                  'default':'-i ../test/dense-linear-algebra/kmeans/204800.txt',
                  'full name':'K-Means Clustering on Sparse Data'}
@@ -155,20 +159,25 @@ papi_envs = [
 
 #increasing the maximum number of clusters to find increases the amount of
 #computation and thus the run time
-selected_papi_envs = papi_envs
-#selected_papi_envs = []
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
+#selected_papi_envs = papi_envs
+selected_papi_envs = []
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 for max_clusters in range(1,15):
     for papi_env in selected_papi_envs:
-        all_good = RunApplicationWithArguments(kmeans,
+        all_good = RunApplicationWithArguments(kmeans_coarse_iteration_profile,
                                                kmeans['default']+" -n 1 -m "+str(max_clusters),
                                                cpu_parameters,
                                                40,#repeats
                                                papi_env['parameters'])
+        #all_good = RunApplicationWithArguments(kmeans,
+        #                                       kmeans['default']+" -n 1 -m "+str(max_clusters),
+        #                                       cpu_parameters,
+        #                                       40,#repeats
+        #                                       papi_env['parameters'])
         if all_good:
             StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
         else:
