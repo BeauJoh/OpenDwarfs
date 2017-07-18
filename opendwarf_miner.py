@@ -161,39 +161,44 @@ papi_envs = [
 #computation and thus the run time
 #selected_papi_envs = papi_envs
 selected_papi_envs = []
-selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
-for max_clusters in range(1,15):
-    for papi_env in selected_papi_envs:
-        all_good = RunApplicationWithArguments(kmeans_coarse_iteration_profile,
-                                               kmeans['default']+" -n 1 -m "+str(max_clusters),
-                                               cpu_parameters,
-                                               40,#repeats
-                                               papi_env['parameters'])
-        #all_good = RunApplicationWithArguments(kmeans,
-        #                                       kmeans['default']+" -n 1 -m "+str(max_clusters),
-        #                                       cpu_parameters,
-        #                                       40,#repeats
-        #                                       papi_env['parameters'])
-        if all_good:
-            StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
-        else:
-            import sys
-            sys.exit()
-#kmeans strider: increase the size of matrix to find to cache spillover sizes
-#for n in range (0,25):
-#    for papi_env in papi_envs:
-#        all_good = RunApplicationWithArguments(kmeans,
-#                                               "-i ../test/dense-linear-algebra/kmeans/{}_34f.txt".format(2**n),
+#experiment involving increasing number of clusters
+#for max_clusters in range(1,15):
+#    for papi_env in selected_papi_envs:
+#        all_good = RunApplicationWithArguments(kmeans_coarse_iteration_profile,
+#                                               kmeans['default']+" -n 1 -m "+str(max_clusters),
 #                                               cpu_parameters,
-#                                               1,#repeats
+#                                               40,#repeats
 #                                               papi_env['parameters'])
+#        #all_good = RunApplicationWithArguments(kmeans,
+#        #                                       kmeans['default']+" -n 1 -m "+str(max_clusters),
+#        #                                       cpu_parameters,
+#        #                                       40,#repeats
+#        #                                       papi_env['parameters'])
 #        if all_good:
-#            StoreRun(kmeans,'results/kmeans_'+str(2**n)+"_sized_matrix_"+papi_env['name'])
+#            StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
 #        else:
 #            import sys
 #            sys.exit()
+#kmeans strider: increase the size of matrix to find to cache spillover sizes
+#L1 cache
+#for n in range (230,251):
+#L2 cache
+for n in range (460,481):
+    for papi_env in selected_papi_envs:
+        all_good = RunApplicationWithArguments(kmeans,
+                                               "-i ../test/dense-linear-algebra/kmeans/{}_136f.txt".format(n),
+                                               cpu_parameters,
+                                               100,#repeats
+                                               papi_env['parameters'])
+        if all_good:
+            StoreRun(kmeans,'results/kmeans_'+str(n)+"_sized_matrix_"+papi_env['name'])
+        else:
+            import sys
+            sys.exit()
 

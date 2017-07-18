@@ -110,18 +110,20 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	num_blocks = num_blocks_perdim*num_blocks_perdim;
 
 	/* allocate memory for memory_new[] and initialize to -1 (host) */
-	membership_new = (int*) memalign ( AOCL_ALIGNMENT, npoints * sizeof(int));
-	//membership_new = (int*) malloc(npoints * sizeof(int));
+	//membership_new = (int*) memalign ( AOCL_ALIGNMENT, npoints * sizeof(int));
+	membership_new = (int*) malloc(npoints * sizeof(int));
 	for(int i=0;i<npoints;i++) {
 		membership_new[i] = -1;
 	}
 
 	/* allocate memory for block_new_centers[] (host) */
-	block_new_centers = (float *) memalign ( AOCL_ALIGNMENT, nclusters*nfeatures*sizeof(float));
-        //block_new_centers = (float *) malloc(nclusters*nfeatures*sizeof(float));
+	//block_new_centers = (float *) memalign ( AOCL_ALIGNMENT, nclusters*nfeatures*sizeof(float));
+     block_new_centers = (float *) malloc(nclusters*nfeatures*sizeof(float));
 
 	/* allocate memory for feature_flipped_d[][], feature_d[][] (device) */
 	feature_flipped_d = clCreateBuffer(context, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
+    printf("Using buffer size: %f\n",(float)(npoints*nfeatures*sizeof(float)*0.001));
+
 	CHKERR(errcode, "Failed to create buffer!");
 
 	errcode = clEnqueueWriteBuffer(commands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &ocdTempEvent);
@@ -180,8 +182,14 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	extern "C"
 void deallocateMemory()
 {
-	free(membership_new);
-	free(block_new_centers);
+    if (membership_new != NULL){
+        free(membership_new);
+        membership_new = NULL;
+    }
+    if (block_new_centers != NULL){
+        free(block_new_centers);
+        block_new_centers = NULL;
+    }
 	clReleaseMemObject(feature_d);
 	clReleaseMemObject(feature_flipped_d);
 	clReleaseMemObject(membership_d);
@@ -243,7 +251,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 #endif
 	/* copy membership (host to device) */
 
-	errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+	errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL,NULL);// &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Membership Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
@@ -259,42 +267,14 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 #ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
 #endif
-	/* set up texture */
-	/*cudaChannelFormatDesc chDesc0 = cudaCreateChannelDesc<float>();
-	  t_features.filterMode = cudaFilterModePoint;   
-	  t_features.normalized = false;
-	  t_features.channelDesc = chDesc0;
-
-	  if(cudaBindTexture(NULL, &t_features, feature_d, &chDesc0, npoints*nfeatures*sizeof(float)) != CUDA_SUCCESS)
-	  printf("Couldn't bind features array to texture!\n");
-
-	  cudaChannelFormatDesc chDesc1 = cudaCreateChannelDesc<float>();
-	  t_features_flipped.filterMode = cudaFilterModePoint;   
-	  t_features_flipped.normalized = false;
-	  t_features_flipped.channelDesc = chDesc1;
-
-	  if(cudaBindTexture(NULL, &t_features_flipped, feature_flipped_d, &chDesc1, npoints*nfeatures*sizeof(float)) != CUDA_SUCCESS)
-	  printf("Couldn't bind features_flipped array to texture!\n");
-
-	  cudaChannelFormatDesc chDesc2 = cudaCreateChannelDesc<float>();
-	  t_clusters.filterMode = cudaFilterModePoint;   
-	  t_clusters.normalized = false;
-	  t_clusters.channelDesc = chDesc2;
-
-	  if(cudaBindTexture(NULL, &t_clusters, clusters_d, &chDesc2, nclusters*nfeatures*sizeof(float)) != CUDA_SUCCESS)
-	  printf("Couldn't bind clusters array to texture!\n");*/
-
-	/* copy clusters to constant memory */
-	//cudaMemcpyToSymbol("c_clusters",clusters[0],nclusters*nfeatures*sizeof(float),0,cudaMemcpyHostToDevice);
 #ifndef PROFILE_OUTER_LOOP
     LSB_Set_Rparam_string("region", "setting_kernel_arguments");
     LSB_Res();
 #endif
-	/* setup execution parameters.
-	   changed to 2d (source code on NVIDIA CUDA Programming Guide) */
-	size_t localWorkSize[2] = {num_threads_perdim*num_threads_perdim, 1};
-	size_t globalWorkSize[2] = {num_blocks_perdim*localWorkSize[0], num_blocks_perdim*localWorkSize[1]};
-
+    size_t globalWorkSize[2] = {npoints,1};
+    size_t localWorkSize[2] = {num_threads_perdim*num_threads_perdim, 1};
+    if(globalWorkSize[0]%localWorkSize[0] !=0)
+        globalWorkSize[0]=(globalWorkSize[0]/localWorkSize[0]+1)*localWorkSize[0];
 	unsigned int arg = 0;
 	errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_flipped_d);
@@ -333,21 +313,31 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     LSB_Set_Rparam_string("region", "device_side_d2h_copy");
     LSB_Res();
 #endif
-	errcode = clEnqueueReadBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
+    for(int z = 0; z < npoints; z++){
+        membership_new[z] = -1;
+    }
+    errcode = clEnqueueReadBuffer(commands,
+                                  membership_d,
+                                  CL_TRUE,
+                                  0,
+                                  npoints*sizeof(int),
+                                  (void *) membership_new,
+                                  0,
+                                  NULL,
+                                  &ocdTempEvent);
+    clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 
 #ifdef BLOCK_CENTER_REDUCE
 	/*** Copy back arrays of per block sums ***/
-	float * block_clusters_h = (float *) memalign ( AOCL_ALIGNMENT,
-			num_blocks_perdim * num_blocks_perdim * 
-			nclusters * nfeatures * sizeof(float));
-//	float * block_clusters_h = (float *) malloc(
-			//num_blocks_perdim * num_blocks_perdim * 
-			//nclusters * nfeatures * sizeof(float));
-
+	//float * block_clusters_h = (float *) memalign ( AOCL_ALIGNMENT,
+	//		num_blocks_perdim * num_blocks_perdim * 
+	//		nclusters * nfeatures * sizeof(float));
+    float * block_clusters_h = (float *) malloc(
+            num_blocks_perdim * num_blocks_perdim * 
+            nclusters * nfeatures * sizeof(float));
 	errcode = clEnqueueReadBuffer(commands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Block_clusters Copy", ocdTempTimer)
@@ -355,10 +345,10 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 #endif
 #ifdef BLOCK_DELTA_REDUCE
-	int * block_deltas_h = (int *) memalign ( AOCL_ALIGNMENT,
-			num_blocks_perdim * num_blocks_perdim * sizeof(int));
-	//int * block_deltas_h = (int *) malloc(
-		//	num_blocks_perdim * num_blocks_perdim * sizeof(int));
+	//int * block_deltas_h = (int *) memalign ( AOCL_ALIGNMENT,
+	//		num_blocks_perdim * num_blocks_perdim * sizeof(int));
+    int * block_deltas_h = (int *) malloc(
+            num_blocks_perdim * num_blocks_perdim * sizeof(int));
 
 	errcode = clEnqueueReadBuffer(commands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &ocdTempEvent);
 	clFinish(commands);

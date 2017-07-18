@@ -5,8 +5,6 @@
 #define FLT_MAX 3.40282347e+38
 #endif
 
-// FIXME: Make this a runtime selectable variable!
-#define ASSUMED_NR_CLUSTERS 32
 
 // t_features has the layout dim0[points 0-m-1]dim1[ points 0-m-1]...
 //texture<float, 1, cudaReadModeElementType> t_features;
@@ -69,10 +67,10 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 {
 
 	// block ID
-	const unsigned int block_id = get_num_groups(0)*get_group_id(1)+get_group_id(0);
+	//const unsigned int block_id = get_num_groups(0)*get_group_id(1)+get_group_id(0);
 	// point/thread ID  
-	const unsigned int point_id = block_id*get_local_size(0)*get_local_size(1) + get_local_id(0);
-
+	//const unsigned int point_id = block_id*get_local_size(0)*get_local_size(1) + get_local_id(0);
+    unsigned int point_id = get_global_id(0);
 	int  index = -1;
 
 	if (point_id < npoints)
