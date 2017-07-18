@@ -196,38 +196,49 @@ int setup(int argc, char **argv) {
 		close(infile);
 	}
 	else {
-		FILE *infile;
-		if ((infile = fopen(filename, "r")) == NULL) {
-			fprintf(stderr, "Error: no such file (%s)\n", filename);
-			exit(1);
-		}		
-		while (fgets(line, 1024, infile) != NULL)
-			if (strtok(line, " \t\n") != 0)
-				npoints++;			
-		rewind(infile);
-		while (fgets(line, 1024, infile) != NULL) {
-			if (strtok(line, " \t\n") != 0) {
-				/* ignore the id (first attribute): nfeatures = 1; */
-				while (strtok(NULL, " ,\t\n") != NULL) nfeatures++;
-				break;
-			}
-		}        
+        FILE *infile;
+        if ((infile = fopen(filename, "r")) == NULL) {
+            fprintf(stderr, "Error: no such file (%s)\n", filename);
+            exit(1);
+        }
+        char * line = NULL;
+        size_t len = 0;
+        //while (fgets(line, 1024, infile) != NULL){
+        while((getline(&line, &len, infile)) != -1) {
+            if (strtok(line, " \t\n") != 0)
+                npoints++;
+        }
+        rewind(infile);
+        //while (fgets(line, 1024, infile) != NULL) {
+        while((getline(&line, &len, infile)) != -1) {
+            if (strtok(line, " \t\n") != 0) {
+                /* ignore the id (first attribute): nfeatures = 1; */
+                while (strtok(NULL, " ,\t\n") != NULL) nfeatures++;
+                break;
+            }
+        }
 
-		/* allocate space for features[] and read attributes of all objects */
-		buf         = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
-		features    = (float**)memalign(AOCL_ALIGNMENT,npoints*          sizeof(float*));
-		features[0] = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
-		for (i=1; i<npoints; i++)
-			features[i] = features[i-1] + nfeatures;
-		rewind(infile);
-		i = 0;
-		while (fgets(line, 1024, infile) != NULL) {
-			if (strtok(line, " \t\n") == NULL) continue;            
-			for (j=0; j<nfeatures; j++) {
-				buf[i] = atof(strtok(NULL, " ,\t\n"));             
-				i++;
-			}            
-		}
+        /* allocate space for features[] and read attributes of all objects */
+		//buf         = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
+		//features    = (float**)memalign(AOCL_ALIGNMENT,npoints*          sizeof(float*));
+		//features[0] = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
+        buf         = (float*) malloc(npoints*nfeatures*sizeof(float));
+        features    = (float**)malloc(npoints*          sizeof(float*));
+        features[0] = (float*) malloc(npoints*nfeatures*sizeof(float));
+
+        for (i=1; i<npoints; i++){
+            features[i] = features[i-1] + nfeatures;
+        }
+        rewind(infile);
+        i = 0;
+        //while (fgets(line, 1024, infile) != NULL) {
+        while((getline(&line, &len, infile)) != -1) {
+            if (strtok(line, " \t\n") == NULL) continue;            
+            for (j=0; j<nfeatures; j++) {
+                buf[i] = atof(strtok(NULL, " ,\t\n"));             
+                i++;
+            }            
+        }
 		fclose(infile);
 	}
 	//io_timing = omp_get_wtime() - io_timing;
@@ -296,16 +307,21 @@ int setup(int argc, char **argv) {
     //printf("Time for Entire Clustering: %.5fsec\n", cluster_timing);
 
 	if(min_nclusters != max_nclusters){
-		if(nloops != 1){									//range of k, multiple iteration
-			//printf("Average Clustering Time: %fsec\n",
-			//		cluster_timing / len);
-			printf("Best number of clusters is %d\n", best_nclusters);				
-		}
-		else{												//range of k, single iteration
-			//printf("Average Clustering Time: %fsec\n",
-			//		cluster_timing / len);
-			printf("Best number of clusters is %d\n", best_nclusters);				
-		}
+        if(!isRMSE){
+            printf("Enable Root Mean Squared Error (with -r) to see the best number of clusters\n");
+        }
+        else{
+            if(nloops != 1){									//range of k, multiple iteration
+                //printf("Average Clustering Time: %fsec\n",
+                //		cluster_timing / len);
+                printf("Best number of clusters is %d\n", best_nclusters);				
+            }
+            else{												//range of k, single iteration
+                //printf("Average Clustering Time: %fsec\n",
+                //		cluster_timing / len);
+                printf("Best number of clusters is %d\n", best_nclusters);				
+            }
+        }
 	}
 	else{
 		if(nloops != 1){									// single k, multiple iteration

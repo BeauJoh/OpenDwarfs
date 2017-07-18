@@ -162,10 +162,10 @@ papi_envs = [
 #selected_papi_envs = papi_envs
 selected_papi_envs = []
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
-selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
-selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 #experiment involving increasing number of clusters
 #for max_clusters in range(1,15):
@@ -189,10 +189,14 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_m
 #L1 cache
 #for n in range (230,251):
 #L2 cache
-for n in range (460,481):
+#for n in range (460,481):
+#L3 cache
+for n in range (3980,4020):
     for papi_env in selected_papi_envs:
         all_good = RunApplicationWithArguments(kmeans,
-                                               "-i ../test/dense-linear-algebra/kmeans/{}_136f.txt".format(n),
+                                               #"-i ../test/dense-linear-algebra/kmeans/{}_34f.txt".format(n),
+                                               #"-i ../test/dense-linear-algebra/kmeans/{}_136f.txt".format(n),
+                                               "-i ../test/dense-linear-algebra/kmeans/{}_512f.txt".format(n),
                                                cpu_parameters,
                                                100,#repeats
                                                papi_env['parameters'])
