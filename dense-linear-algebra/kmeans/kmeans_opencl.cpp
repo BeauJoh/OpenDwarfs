@@ -276,17 +276,17 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
         globalWorkSize[0]=(globalWorkSize[0]/localWorkSize[0]+1)*localWorkSize[0];
 	unsigned int arg = 0;
 	errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);
-	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_flipped_d);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nfeatures);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &npoints);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nclusters);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &membership_d);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &clusters_d);
+#ifdef BLOCK_CENTER_REDUCE
+	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_flipped_d);
+	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_deltas_d);
+#endif
 #ifdef BLOCK_DELTA_REDUCE
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_clusters_d);
-#endif
-#ifdef BLOCK_CENTER_REDUCE
-	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_deltas_d);
 #endif
 	CHKERR(errcode, "Failed to set kernel arg!");
 #ifndef PROFILE_OUTER_LOOP

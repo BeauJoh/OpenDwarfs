@@ -155,7 +155,6 @@ int setup(int argc, char **argv) {
             case 'g': generateFeaturespace=true;
                   break;
             case 'p': numberOfObjects=atoi(optarg);
-                  printf("setting p\n\n\n");
                   break;
             case 'f': numberOfFeaturesPerObject=atoi(optarg);
                   break;
@@ -284,6 +283,7 @@ int setup(int argc, char **argv) {
 	printf("\nI/O completed\n");
 	printf("\nNumber of objects: %d\n", npoints);
 	printf("Number of features: %d\n", nfeatures);	
+    
 	/* ============== I/O end ==============*/
     LSB_Set_Rparam_int("number_of_objects", npoints);
     LSB_Set_Rparam_int("number_of_features", nfeatures);

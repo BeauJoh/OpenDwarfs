@@ -51,13 +51,13 @@ __kernel void invert_mapping(__global float *input,			/* original */
 /* find the index of nearest cluster centers and change membership*/
 	__kernel void
 kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
-		__global float  *features_flipped,
 		int     nfeatures,
 		int     npoints,
 		int     nclusters,
 		__global int    *membership,
 		__constant float  *clusters
 #ifdef GPU_NEW_CENTER_REDUCTION
+        , __global float  *features_flipped
 		, __global float  *block_clusters
 #endif
 #ifdef GPU_DELTA_REDUCTION
