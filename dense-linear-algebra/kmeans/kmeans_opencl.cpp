@@ -122,7 +122,6 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 
 	/* allocate memory for feature_flipped_d[][], feature_d[][] (device) */
 	feature_flipped_d = clCreateBuffer(context, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
-    printf("Using buffer size: %f\n",(float)(npoints*nfeatures*sizeof(float)*0.001));
 
 	CHKERR(errcode, "Failed to create buffer!");
 

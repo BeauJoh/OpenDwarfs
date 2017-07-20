@@ -77,6 +77,7 @@
 #include <math.h>
 #include <fcntl.h>
 #include <omp.h>
+#include <stdbool.h>
 #include "kmeans.h"
 #include <malloc.h>
 #include <unistd.h>
@@ -91,8 +92,11 @@ extern double wtime(void);
 void usage(char *argv0) {
 	char *help =
 		"\nUsage: %s [common options (-p/-d) --] [switches] -i filename\n\n"
-		"    -p               :platform\n   "
+		"    -p               :platform\n"
 		"    -d               :device\n"
+        "    -g               :generate a random feature space (if so the following 2 options (-p and -f) may be of use)\n"
+        "    -p num_objects   :number of points/objects in this feature space\n"
+        "    -f num_features  :number of features in each point/object [default=34]\n"
 		"    -i filename      :file containing data to be clustered\n"		
 		"    -m max_nclusters :maximum number of clusters allowed    [default=5]\n"
 		"    -n min_nclusters :minimum number of clusters allowed    [default=5]\n"
@@ -139,12 +143,22 @@ int setup(int argc, char **argv) {
 	//ocd_options opts = ocd_get_options();
 	//platform_id = opts.platform_id;
 	//device_id = opts.device_id;
+    bool generateFeaturespace = false;
+    int numberOfObjects = 0;
+    int numberOfFeaturesPerObject=34;
 
 	/* obtain command line arguments and change appropriate options */
-	while ( (opt=getopt(argc,argv,"i:t:m:n:l:bro"))!= EOF) {
+	while ( (opt=getopt(argc,argv,"i:p:f:t:m:n:l:gbro"))!= EOF) {
 		switch (opt) {
 			case 'i': filename=optarg;
 				  break;
+            case 'g': generateFeaturespace=true;
+                  break;
+            case 'p': numberOfObjects=atoi(optarg);
+                  printf("setting p\n\n\n");
+                  break;
+            case 'f': numberOfFeaturesPerObject=atoi(optarg);
+                  break;
 			case 'b': isBinaryFile = 1;
 				  break;            
 			case 't': threshold=atof(optarg);
@@ -166,16 +180,40 @@ int setup(int argc, char **argv) {
 		}
 	}
 
-	if (filename == 0) usage(argv[0]);
+    if(generateFeaturespace == true && numberOfObjects == 0){
+        printf("The num_objects (-p) must be set and non-zero if you wish to generate a random featurespace");
+        usage(argv[0]);
+    }
+	if (filename == 0 && generateFeaturespace == false) usage(argv[0]);
 
     LSB_Init("kmeans", 0);
     LSB_Set_Rparam_string("region", "host_side_setup");
     LSB_Res();
 
-	/* ============== I/O begin ==============*/
-	/* get nfeatures and npoints */
-	//io_timing = omp_get_wtime();
-	if (isBinaryFile) {		//Binary file input
+    /* ============== I/O begin ==============*/
+    /* get nfeatures and npoints */
+    //io_timing = omp_get_wtime();
+    if(generateFeaturespace){
+        npoints = numberOfObjects;
+        nfeatures = numberOfFeaturesPerObject;
+
+        buf         = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
+        features    = (float**)memalign(AOCL_ALIGNMENT,npoints*          sizeof(float*));
+        features[0] = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
+        for(i=1; i<npoints; i++){
+            features[i] = features[i-1] + nfeatures;
+        }
+        i = 0;
+        int x;
+        for (x = 0; x < npoints; x++ ) {
+            for (j = 0; j < nfeatures; j++) {
+                buf[i] = ((float)rand() / (float)RAND_MAX);
+                i++;
+            }            
+        }
+        printf("Generated %i points/objects with %i features, using %f KiB",
+                npoints,nfeatures,(float)(npoints*nfeatures*sizeof(float))/1024.0);
+    } else if (isBinaryFile) {		//Binary file input
 		int infile;
 		if ((infile = open(filename, O_RDONLY, "0600")) == -1) {
 			fprintf(stderr, "Error: no such file (%s)\n", filename);
@@ -308,7 +346,7 @@ int setup(int argc, char **argv) {
 
 	if(min_nclusters != max_nclusters){
         if(!isRMSE){
-            printf("Enable Root Mean Squared Error (with -r) to see the best number of clusters\n");
+            printf("To see the best number of clusters, enable Root Mean Squared Error (with -r) \n");
         }
         else{
             if(nloops != 1){									//range of k, multiple iteration

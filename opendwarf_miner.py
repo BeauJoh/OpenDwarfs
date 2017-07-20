@@ -163,8 +163,8 @@ papi_envs = [
 selected_papi_envs = []
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'energy_nanojoules'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 #experiment involving increasing number of clusters
@@ -188,17 +188,23 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_
 #kmeans strider: increase the size of matrix to find to cache spillover sizes
 #L1 cache
 #for n in range (230,251):
+#for n in range (224,288):
 #L2 cache
 #for n in range (460,481):
+#for n in range (1,16):
 #L3 cache
-for n in range (3980,4020):
+#for n in range (3980,4020):
+for n in range (16,48):
     for papi_env in selected_papi_envs:
         all_good = RunApplicationWithArguments(kmeans,
                                                #"-i ../test/dense-linear-algebra/kmeans/{}_34f.txt".format(n),
+                                               #"-i ../test/dense-linear-algebra/kmeans/{}_32f.txt".format(n),
                                                #"-i ../test/dense-linear-algebra/kmeans/{}_136f.txt".format(n),
-                                               "-i ../test/dense-linear-algebra/kmeans/{}_512f.txt".format(n),
+                                               #"-i ../test/dense-linear-algebra/kmeans/{}_8192f.txt".format(n),
+                                               #"-i ../test/dense-linear-algebra/kmeans/{}_512f.txt".format(n),
+                                               "-i ../test/dense-linear-algebra/kmeans/{}_65536f.txt".format(n),
                                                cpu_parameters,
-                                               100,#repeats
+                                               150,#repeats
                                                papi_env['parameters'])
         if all_good:
             StoreRun(kmeans,'results/kmeans_'+str(n)+"_sized_matrix_"+papi_env['name'])
