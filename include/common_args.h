@@ -28,8 +28,10 @@ extern int _deviceType;
     if (err != CL_SUCCESS) \
     { \
         fprintf(stdout, "CL Error %d: %s\n", err, str); \
-        exit(1); \
+        exit(EXIT_FAILURE); \
     }
+
+
 
 typedef struct ocd_options
 {

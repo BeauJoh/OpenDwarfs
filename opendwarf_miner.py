@@ -4,16 +4,25 @@ from opendwarf_miner_utils import *
 #Benchmark parameters:
 kmeans = {'name':'kmeans',
           'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
+          'tiny':'-g -p 26 -f 256',     #< 32K, object increments of 1KiB
+          'small':'-g -p 26 -f 2048',   #< 256K, object increments of 8KiB
+          'medium':'-g -p 26 -f 65536', #< 8196K, object increments of 256KiB
+          'large':'-g -p 26 -f 524288', #> 8196K, object increments of 2048KiB
           'full name':'K-Means Clustering'}
 kmeans_coarse_iteration_profile = {
         'name':'kmeans_profiling_outer_loop',
         'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
+        'tiny':'-g -p 26 -f 256',     # 1KiB
+        'small':'-g -p 26 -f 2048',   # 8KiB
+        'medium':'-g -p 26 -f 65536', # 256KiB
+        'large':'-g -p 26 -f 524288', # 2048KiB
         'full name':'K-Means Clustering'}
-kmeans_sparse = {'name':'kmeans',
-                 'default':'-i ../test/dense-linear-algebra/kmeans/204800.txt',
-                 'full name':'K-Means Clustering on Sparse Data'}
 lud = {'name':'lud',
        'default':'-i ../test/dense-linear-algebra/lud/3072.dat',
+       'tiny':'',
+       'small':'',
+       'medium':'',
+       'large':'',
        'full name':'Lower Upper Decomposition'}
 csr = {'name':'csr',
        'default':'-i ../test/sparse-linear-algebra/SPMV/csr_65536.txt',
@@ -167,48 +176,48 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_m
 selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
-#experiment involving increasing number of clusters
-#for max_clusters in range(1,15):
-#    for papi_env in selected_papi_envs:
-#        all_good = RunApplicationWithArguments(kmeans_coarse_iteration_profile,
-#                                               kmeans['default']+" -n 1 -m "+str(max_clusters),
+#selected_applications = []
+#selected_applications.extend(dense_linear_algebra)
+#
+#selected_repetitions = 1
+#selected_device = cpu_parameters
+#selected_problem_size = 'tiny'
+##instrument all applications
+#for papi_env in selected_papi_envs:
+#    for application in selected_applications:
+#        all_good = RunApplicationWithArguments(application,
+#                                               application[selected_problem_size],
 #                                               cpu_parameters,
-#                                               40,#repeats
+#                                               selected_repetitions,
 #                                               papi_env['parameters'])
-#        #all_good = RunApplicationWithArguments(kmeans,
-#        #                                       kmeans['default']+" -n 1 -m "+str(max_clusters),
-#        #                                       cpu_parameters,
-#        #                                       40,#repeats
-#        #                                       papi_env['parameters'])
 #        if all_good:
-#            StoreRun(kmeans,'results/kmeans_'+str(max_clusters)+"_max_clusters_"+papi_env['name'])
+#            StoreRun(kmeans,
+#                    'results/cpu_'+application['name']+'_'+selected_problem_size+'_'+papi_env['name'])
 #        else:
-#            import sys
-#            sys.exit()
-#kmeans strider: increase the size of matrix to find to cache spillover sizes
-#L1 cache
-#for n in range (230,251):
-#for n in range (224,288):
-#L2 cache
-#for n in range (460,481):
-#for n in range (1,16):
-#L3 cache
-#for n in range (3980,4020):
-for n in range (16,48):
-    for papi_env in selected_papi_envs:
-        all_good = RunApplicationWithArguments(kmeans,
-                                               #"-i ../test/dense-linear-algebra/kmeans/{}_34f.txt".format(n),
-                                               #"-i ../test/dense-linear-algebra/kmeans/{}_32f.txt".format(n),
-                                               #"-i ../test/dense-linear-algebra/kmeans/{}_136f.txt".format(n),
-                                               #"-i ../test/dense-linear-algebra/kmeans/{}_8192f.txt".format(n),
-                                               #"-i ../test/dense-linear-algebra/kmeans/{}_512f.txt".format(n),
-                                               "-i ../test/dense-linear-algebra/kmeans/{}_65536f.txt".format(n),
-                                               cpu_parameters,
-                                               150,#repeats
-                                               papi_env['parameters'])
-        if all_good:
-            StoreRun(kmeans,'results/kmeans_'+str(n)+"_sized_matrix_"+papi_env['name'])
-        else:
-            import sys
-            sys.exit()
+#            import ipdb
+#            ipdb.set_trace()
+#            #import sys
+#            #sys.exit()
+
+##kmeans strider: increase the size of feature space to find to cache spillover sizes
+feature_sizes = [256,2048,65536,524288]
+repeats = 300
+for f in feature_sizes:
+    for o in range (5,48):
+        for papi_env in selected_papi_envs:
+             #'tiny':'-g -p 26 -f 256',     #< 32K, object increments of 1KiB
+             #'small':'-g -p 26 -f 2048',   #< 256K, object increments of 8KiB
+             #'medium':'-g -p 26 -f 65536', #< 8196K, object increments of 256KiB
+             #'large':'-g -p 26 -f 524288', #> 8196K, object increments of 2048KiB
+
+            all_good = RunApplicationWithArguments(kmeans,
+                                                   "-g -p {} -f {} -m 5 -n 5".format(o,f),
+                                                   cpu_parameters,
+                                                   repeats,
+                                                   papi_env['parameters'])
+            if all_good:
+                StoreRun(kmeans,"results/kmeans_{}_objects_{}_features_{}".format(o,f,papi_env['name']))
+            else:
+                import sys
+                sys.exit()
 

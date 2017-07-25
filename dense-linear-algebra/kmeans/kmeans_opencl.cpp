@@ -14,9 +14,6 @@
 #define BLOCKS_PER_DIM 16
 #define AOCL_ALIGNMENT 64
 
-//#define BLOCK_DELTA_REDUCE
-//#define BLOCK_CENTER_REDUCE
-
 #define CPU_DELTA_REDUCE
 #define CPU_CENTER_REDUCE
 
@@ -24,9 +21,6 @@ extern "C"
 int setup(int argc, char** argv);									/* function prototype */
 // GLOBAL!!!!!
 unsigned int num_threads_perdim = THREADS_PER_DIM;					/* sqrt(256) -- see references for this choice */
-unsigned int num_blocks_perdim = BLOCKS_PER_DIM;					/* temporary */
-unsigned int num_threads = num_threads_perdim*num_threads_perdim;	/* number of threads */
-unsigned int num_blocks = num_blocks_perdim*num_blocks_perdim;		/* number of blocks */
 
 cl_program clProgram;
 cl_kernel clKernel_invert_mapping;
@@ -64,10 +58,6 @@ void initCL()
 	size_t max_worksize[3];
 	errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
 	CHKERR(errcode, "Failed to get device info!");
-	while(num_threads_perdim*num_threads_perdim>max_worksize[0])
-		num_threads_perdim = num_threads_perdim/2;
-
-	num_threads = num_threads_perdim*num_threads_perdim;
 
     LSB_Set_Rparam_string("region", "kernel_creation");
     LSB_Res();
@@ -98,16 +88,6 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	cl_int errcode;
 	size_t globalWorkSize;
 	size_t localWorkSize;
-
-	num_blocks = npoints / num_threads;
-	if (npoints % num_threads > 0)		/* defeat truncation */
-		num_blocks++;
-
-	num_blocks_perdim = sqrt((double) num_blocks);
-	while (num_blocks_perdim * num_blocks_perdim < num_blocks)	// defeat truncation (should run once)
-		num_blocks_perdim++;
-
-	num_blocks = num_blocks_perdim*num_blocks_perdim;
 
 	/* allocate memory for memory_new[] and initialize to -1 (host) */
 	//membership_new = (int*) memalign ( AOCL_ALIGNMENT, npoints * sizeof(int));
@@ -141,35 +121,20 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &npoints);
 	errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &nfeatures);
 	CHKERR(errcode, "Failed to set kernel arg!");
-	globalWorkSize = num_blocks*num_threads;
-	localWorkSize = num_threads;
+	globalWorkSize = npoints*nclusters;
+	localWorkSize = nclusters;
 
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Invert Mapping Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHKERR(errcode, "Failed to enqueue kernel!");
+	CHKERR(errcode, "Failed to enqueue kernel! (Invert Mapping Kernel)");
 
 	/* allocate memory for membership_d[] and clusters_d[][] (device) */
 	membership_d = clCreateBuffer(context, CL_MEM_READ_WRITE, npoints*sizeof(int), NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 	clusters_d = clCreateBuffer(context, CL_MEM_READ_ONLY, nclusters*nfeatures*sizeof(float), NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
-
-#ifdef BLOCK_DELTA_REDUCE
-	// allocate array to hold the per block deltas on the gpu side
-
-	block_deltas_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_blocks_perdim*num_blocks_perdim*sizeof(int), NULL, &errcode);
-	CHKERR(errcode, "Failed to create buffer!");
-	//cudaMemcpy(block_delta_d, &delta_h, sizeof(int), cudaMemcpyHostToDevice);
-#endif
-
-#ifdef BLOCK_CENTER_REDUCE
-	// allocate memory and copy to card cluster  array in which to accumulate center points for the next iteration
-	block_clusters_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), NULL, &errcode);
-	CHKERR(errcode, "Failed to create buffer!");
-	//cudaMemcpy(new_clusters_d, new_centers[0], nclusters*nfeatures*sizeof(float), cudaMemcpyHostToDevice);
-#endif
 
     LSB_Rec(0);
 
@@ -194,12 +159,6 @@ void deallocateMemory()
 	clReleaseMemObject(membership_d);
 
 	clReleaseMemObject(clusters_d);
-#ifdef BLOCK_CENTER_REDUCE
-	clReleaseMemObject(block_clusters_d);
-#endif
-#ifdef BLOCK_DELTA_REDUCE
-	clReleaseMemObject(block_deltas_d);
-#endif
 	clReleaseKernel(clKernel_invert_mapping);
 	clReleaseKernel(clKernel_kmeansPoint);
 	clReleaseProgram(clProgram);
@@ -270,10 +229,9 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     LSB_Set_Rparam_string("region", "setting_kernel_arguments");
     LSB_Res();
 #endif
-    size_t globalWorkSize[2] = {npoints,1};
-    size_t localWorkSize[2] = {num_threads_perdim*num_threads_perdim, 1};
-    if(globalWorkSize[0]%localWorkSize[0] !=0)
-        globalWorkSize[0]=(globalWorkSize[0]/localWorkSize[0]+1)*localWorkSize[0];
+    size_t globalWorkSize[1] = {npoints*nclusters};
+    size_t localWorkSize[1] = {nclusters};
+
 	unsigned int arg = 0;
 	errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nfeatures);
@@ -281,13 +239,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nclusters);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &membership_d);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &clusters_d);
-#ifdef BLOCK_CENTER_REDUCE
-	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_flipped_d);
-	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_deltas_d);
-#endif
-#ifdef BLOCK_DELTA_REDUCE
-	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_clusters_d);
-#endif
+    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, nclusters*sizeof(float), NULL);
 	CHKERR(errcode, "Failed to set kernel arg!");
 #ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
@@ -297,8 +249,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     LSB_Set_Rparam_string("region", "kmeans_kernel");
     LSB_Res();
 #endif
-	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-	CHKERR(errcode, "Failed to enqueue kernel!");
+	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+	CHKERR(errcode, "Failed to enqueue kernel! (kmeansPoint)");
 	errcode = clFinish(commands);
 #ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
@@ -329,32 +281,6 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 
-#ifdef BLOCK_CENTER_REDUCE
-	/*** Copy back arrays of per block sums ***/
-	//float * block_clusters_h = (float *) memalign ( AOCL_ALIGNMENT,
-	//		num_blocks_perdim * num_blocks_perdim * 
-	//		nclusters * nfeatures * sizeof(float));
-    float * block_clusters_h = (float *) malloc(
-            num_blocks_perdim * num_blocks_perdim * 
-            nclusters * nfeatures * sizeof(float));
-	errcode = clEnqueueReadBuffer(commands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Block_clusters Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errcode, "Failed to enqueue read buffer!");
-#endif
-#ifdef BLOCK_DELTA_REDUCE
-	//int * block_deltas_h = (int *) memalign ( AOCL_ALIGNMENT,
-	//		num_blocks_perdim * num_blocks_perdim * sizeof(int));
-    int * block_deltas_h = (int *) malloc(
-            num_blocks_perdim * num_blocks_perdim * sizeof(int));
-
-	errcode = clEnqueueReadBuffer(commands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Block_deltas Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errcode, "Failed to enqueue read buffer!");
-#endif
 #ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
 #endif
@@ -382,55 +308,6 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 		}
 #endif
 	}
-
-
-#ifdef BLOCK_DELTA_REDUCE	
-	/*** calculate global sums from per block sums for delta and the new centers ***/    
-
-	//debug
-	//printf("\t \t reducing %d block sums to global sum \n",num_blocks_perdim * num_blocks_perdim);
-	for(i = 0; i < num_blocks_perdim * num_blocks_perdim; i++) {
-		//printf("block %d delta is %d \n",i,block_deltas_h[i]);
-		delta += block_deltas_h[i];
-	}
-
-#endif
-#ifdef BLOCK_CENTER_REDUCE	
-
-	for(int j = 0; j < nclusters;j++) {
-		for(int k = 0; k < nfeatures;k++) {
-			block_new_centers[j*nfeatures + k] = 0.f;
-		}
-	}
-
-	for(i = 0; i < num_blocks_perdim * num_blocks_perdim; i++) {
-		for(int j = 0; j < nclusters;j++) {
-			for(int k = 0; k < nfeatures;k++) {
-				block_new_centers[j*nfeatures + k] += block_clusters_h[i * nclusters*nfeatures + j * nfeatures + k];
-			}
-		}
-	}
-
-
-#ifdef CPU_CENTER_REDUCE
-	//debug
-	/*for(int j = 0; j < nclusters;j++) {
-	  for(int k = 0; k < nfeatures;k++) {
-	  if(new_centers[j][k] >	1.001 * block_new_centers[j*nfeatures + k] || new_centers[j][k] <	0.999 * block_new_centers[j*nfeatures + k]) {
-	  printf("\t \t for %d:%d, normal value is %e and gpu reduced value id %e \n",j,k,new_centers[j][k],block_new_centers[j*nfeatures + k]);
-	  }
-	  }
-	  }*/
-#endif
-
-#ifdef BLOCK_CENTER_REDUCE
-	for(int j = 0; j < nclusters;j++) {
-		for(int k = 0; k < nfeatures;k++)
-			new_centers[j][k]= block_new_centers[j*nfeatures + k];		
-	}
-#endif
-
-#endif
 
 	return delta;
 
