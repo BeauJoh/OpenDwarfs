@@ -45,7 +45,7 @@ kmeansPoint(__global float  *features, /* in: [npoints*nfeatures] */
         int     npoints,
         int     nclusters,
         __global int    *membership,
-        __constant float  *clusters,
+        __global float  *clusters,
         __local float *dist
         ) 
 {
