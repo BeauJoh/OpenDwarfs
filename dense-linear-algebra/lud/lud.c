@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <malloc.h>
+#include <string.h>
+
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
@@ -12,7 +15,7 @@
 //#define USEGPU 1
 int BLOCK_SIZE = 16;
 static int do_verify = 0;
-
+#define AOCL_ALIGNMENT 64
 
 static struct option long_options[] = {
 	/* name, has_arg, flag, val */
@@ -27,7 +30,7 @@ static struct option long_options[] = {
 	int
 main ( int argc, char *argv[] )
 {
-	int matrix_dim = 32; /* default matrix_dim */
+	int matrix_dim = 0; /* default matrix_dim */
 	int opt, option_index=0;
 	func_ret_t ret;
 	const char *input_file = NULL;
@@ -70,9 +73,7 @@ main ( int argc, char *argv[] )
 				break;
 			case 's':
 				matrix_dim = atoi(optarg);
-				fprintf(stderr, "Currently not supported, use -i instead\n");
-				fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
-				exit(EXIT_FAILURE);
+                break;
 			case '?':
 				fprintf(stderr, "invalid option\n");
 				break;
@@ -90,8 +91,21 @@ main ( int argc, char *argv[] )
 		fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-
-	if (input_file) {
+    if(matrix_dim == 0 && input_file){
+        fprintf(stderr, "No Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    if(matrix_dim != 0){
+        //create the matrix
+        int i, j;
+        m = (float*)memalign(AOCL_ALIGNMENT,sizeof(float)*matrix_dim*matrix_dim);
+        for (i=0; i < matrix_dim; i++) {
+            for (j=0; j < matrix_dim; j++) {
+                m[i*matrix_dim+j] = ((float)rand() / (float)RAND_MAX);
+            }
+        }
+    }
+    else if (input_file) {
 		printf("Reading matrix from file %s\n", input_file);
 		ret = create_matrix_from_file(&m, input_file, &matrix_dim);
 		if (ret != RET_SUCCESS) {
@@ -149,7 +163,8 @@ main ( int argc, char *argv[] )
 	CHKERR(errcode, "Failed to create buffer!");
 
     LSB_Rec(0);
-
+    printf("Working kernel memory: %fKiB\n",
+                (matrix_dim*matrix_dim*sizeof(float))/1024.0);
 	/* beginning of timing point */
 	stopwatch_start(&sw);
 
@@ -173,78 +188,95 @@ main ( int argc, char *argv[] )
 #ifdef START_POWER
 	for( int iter = 0; iter < 1000; iter++)
 #endif
+#ifdef PROFILE_OUTER_LOOP
+    LSB_Set_Rparam_string("region", "lud_loop");
+    LSB_Res();
+#endif
 		for (i=0; i < matrix_dim-BLOCK_SIZE; i += BLOCK_SIZE) {
+#ifndef PROFILE_OUTER_LOOP
             LSB_Set_Rparam_string("region", "setting_diagonal_kernel_arguments");
             LSB_Res();
-
+#endif
 			errcode = clSetKernelArg(clKernel_diagonal, 0, sizeof(cl_mem), (void *) &d_m);
 			errcode |= clSetKernelArg(clKernel_diagonal, 1, sizeof(int), (void *) &matrix_dim);
 			errcode |= clSetKernelArg(clKernel_diagonal, 2, sizeof(int), (void *) &i);
 			CHKERR(errcode, "Failed to set kernel arguments!");
-
+#ifndef PROFILE_OUTER_LOOP
             LSB_Rec(i);
-
+#endif
 			localWorkSize[0] = BLOCK_SIZE;
 			globalWorkSize[0] = BLOCK_SIZE;
-
+#ifndef PROFILE_OUTER_LOOP
             LSB_Set_Rparam_string("region", "diagonal_kernel");
             LSB_Res();
-
+#endif
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+#ifndef PROFILE_OUTER_LOOP
             LSB_Rec(i);
-
-		    printf("max Work-item Size2: %d\n",(int)max_worksize[0]);	
+#endif
+		    //printf("max Work-item Size2: %d\n",(int)max_worksize[0]);	
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
 				END_TIMER(ocdTempTimer)
 				CHKERR(errcode, "Failed to enqueue kernel!");
+#ifndef PROFILE_OUTER_LOOP
             LSB_Set_Rparam_string("region", "setting_perimeter_kernel_arguments");
             LSB_Res();
+#endif
 
 			errcode = clSetKernelArg(clKernel_perimeter, 0, sizeof(cl_mem), (void *) &d_m);
 			errcode |= clSetKernelArg(clKernel_perimeter, 1, sizeof(int), (void *) &matrix_dim);
 			errcode |= clSetKernelArg(clKernel_perimeter, 2, sizeof(int), (void *) &i);
 			CHKERR(errcode, "Failed to set kernel arguments!");
+#ifndef PROFILE_OUTER_LOOP
             LSB_Rec(i);
-
+#endif
 			localWorkSize[0] = BLOCK_SIZE*2;
 			globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
-
+#ifndef PROFILE_OUTER_LOOP
             LSB_Set_Rparam_string("region", "perimeter_kernel");
             LSB_Res();
-
+#endif
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_perimeter, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+#ifndef PROFILE_OUTER_LOOP
             LSB_Rec(i);
-
+#endif
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Perimeter Kernel", ocdTempTimer)
 				CHKERR(errcode, "Failed to enqueue kernel!");
 			END_TIMER(ocdTempTimer)
-
+#ifndef PROFILE_OUTER_LOOP
             LSB_Set_Rparam_string("region", "setting_internal_kernel_arguments");
             LSB_Res();
+#endif
 				errcode = clSetKernelArg(clKernel_internal, 0, sizeof(cl_mem), (void *) &d_m);
 			errcode |= clSetKernelArg(clKernel_internal, 1, sizeof(int), (void *) &matrix_dim);
 			errcode |= clSetKernelArg(clKernel_internal, 2, sizeof(int), (void *) &i);
 			CHKERR(errcode, "Failed to set kernel arguments!");
+#ifndef PROFILE_OUTER_LOOP
             LSB_Rec(i);
-
+#endif
 			localWorkSize[0] = BLOCK_SIZE;
 			localWorkSize[1] = BLOCK_SIZE;
 			globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
 			globalWorkSize[1] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[1];
-
+#ifndef PROFILE_OUTER_LOOP
             LSB_Set_Rparam_string("region", "internal_kernel");
             LSB_Res();
-
+#endif
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_internal, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+#ifndef PROFILE_OUTER_LOOP
             LSB_Rec(i);
+#endif
 
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Internal Kernel", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-				CHKERR(errcode, "Failed to enqueue kernel!");
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Internal Kernel", ocdTempTimer)
+                END_TIMER(ocdTempTimer)
+                CHKERR(errcode, "Failed to enqueue kernel!");
 		}
+#ifdef PROFILE_OUTER_LOOP
+    LSB_Rec(0);
+#endif
 
     LSB_Set_Rparam_string("region", "setting_final_diagonal_kernel_arguments");
     LSB_Res();

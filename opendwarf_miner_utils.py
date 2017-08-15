@@ -27,7 +27,7 @@ def StoreRun(application,directory):
     numbered_directory = directory+".{}".format(i)
 
     os.makedirs(numbered_directory)
-    run_name = application['name']
+    run_name = application['alias']
     for run in glob.glob('lsb.'+run_name+'.'+'*'):
         shutil.move(run,numbered_directory)
 

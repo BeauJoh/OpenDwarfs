@@ -6,8 +6,12 @@
 #
 
 bin_PROGRAMS += lud
+bin_PROGRAMS += lud_profiling_outer_loop
 
 lud_SOURCES = dense-linear-algebra/lud/lud.c dense-linear-algebra/lud/common.c
+lud_profiling_outer_loop_SOURCES = dense-linear-algebra/lud/lud.c dense-linear-algebra/lud/common.c
+
+lud_profiling_outer_loop_CFLAGS = $(AM_CFLAGS) -DPROFILE_OUTER_LOOP
 
 all_local += lud-all-local
 exec_local += lud-exec-local
