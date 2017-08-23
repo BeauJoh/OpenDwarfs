@@ -1,6 +1,6 @@
 #include "common_args.h"
 
-ocd_options _settings = {0, -1, 0, 0};
+ocd_options _settings = {0, -1, 0, 0, 0, 0, 0};
 ocd_requirements _requirements = {0,0,0};
 option* _options = NULL;
 
@@ -10,6 +10,7 @@ int _options_size = 0;
 int n_platform;
 int n_device;
 int optimized;  //If otimized kernel shall be used
+
 cl_device_id device_id;
 cl_context context;
 cl_command_queue commands;
@@ -19,13 +20,19 @@ int _deviceType=0;//default for CPU, if no device option given
 void _ocd_create_arguments()
 {
 	free(_options);
-	_options = (option*)malloc(sizeof(option) * 6);
-	option ops[5] = {{OTYPE_INT, 'p', (char*)"platform", (char*)"OpenCL Platform ID",
+	_options = (option*)malloc(sizeof(option) * 9);
+	option ops[8] = {{OTYPE_INT, 'p', (char*)"platform", (char*)"OpenCL Platform ID",
                      OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL},
 		{OTYPE_INT, 'd', (char*)"device", (char*)"OpenCL Device ID",
                      OFLAG_NONE, &_settings.device_id, NULL, NULL, NULL, NULL},
-        {OTYPE_INT, 't', (char*)"device type", (char*)"OpenCL Device type",
+        {OTYPE_INT, 't', (char*)"type", (char*)"OpenCL Device type",
                      OFLAG_NONE, &_settings.device_type, NULL, NULL, NULL, NULL},
+        {OTYPE_INT, 'x', (char*)"1D workgroup", (char*)"1D local workgroup size",
+                     OFLAG_NONE, &_settings.workgroup_1d, NULL, NULL, NULL, NULL},
+        {OTYPE_INT, 'y', (char*)"2D workgroup dim1", (char*)"2D local workgroup size 1st dimension",
+                     OFLAG_NONE, &_settings.workgroup_2d_x, NULL, NULL, NULL, NULL},
+        {OTYPE_INT, 'z', (char*)"2D workgroup dim2", (char*)"2D local workgroup size 2nd dimension",
+                     OFLAG_NONE, &_settings.workgroup_2d_y, NULL, NULL, NULL, NULL},
         {OTYPE_BOL, 'o', (char*)"Optimized Kernel", (char*)"Use Optimized kernel for the given platform",
                      OFLAG_SET, &_settings.optimized, NULL, NULL, NULL, NULL},
 		{OTYPE_END, '\0', (char*)"", NULL,
@@ -35,9 +42,12 @@ void _ocd_create_arguments()
 	_options[1] = ops[1];
 	_options[2] = ops[2];
 	_options[3] = ops[3];
-	_options[4] = ops[4];
-	_options_length = 6; // why?
-	_options_size = 5;
+    _options[4] = ops[4];
+    _options[5] = ops[5];
+    _options[6] = ops[6];
+	_options[7] = ops[7];
+	_options_length = 9; // why?
+	_options_size = 8;
 }
 
 ocd_options ocd_get_options()

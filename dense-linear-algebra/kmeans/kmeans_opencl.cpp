@@ -10,8 +10,6 @@
 
 #include <omp.h>
 
-#define THREADS_PER_DIM 16
-#define BLOCKS_PER_DIM 16
 #define AOCL_ALIGNMENT 64
 
 #define CPU_DELTA_REDUCE
@@ -19,8 +17,6 @@
 
 extern "C"
 int setup(int argc, char** argv);									/* function prototype */
-// GLOBAL!!!!!
-unsigned int num_threads_perdim = THREADS_PER_DIM;					/* sqrt(256) -- see references for this choice */
 
 cl_program clProgram;
 cl_kernel clKernel_invert_mapping;
@@ -41,6 +37,8 @@ cl_mem block_deltas_d;												/* per block calculation of deltas */
   cl_mem t_features_flipped;
   cl_mem t_clusters;*/
 
+unsigned int num_threads;//1d kernel
+unsigned int num_blocks;
 
 /* -------------- initCL() -------------- */
 	extern "C"
@@ -54,6 +52,7 @@ void initCL()
 	cl_int errcode;
 
 	ocd_initCL();
+    num_threads = ocd_get_options().workgroup_1d;
 
 	size_t max_worksize[3];
 	errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
@@ -88,8 +87,17 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	cl_int errcode;
 	size_t globalWorkSize;
 	size_t localWorkSize;
+    
+    num_blocks = npoints / num_threads;
+    if (npoints % num_threads > 0)
+        num_blocks++;
+    unsigned int num_blocks_perdim = sqrt((double) num_blocks);
+    while (num_blocks_perdim * num_blocks_perdim < num_blocks)
+        num_blocks_perdim++;
 
-	/* allocate memory for memory_new[] and initialize to -1 (host) */
+    num_blocks = num_blocks_perdim*num_blocks_perdim;
+
+    /* allocate memory for memory_new[] and initialize to -1 (host) */
 	//membership_new = (int*) memalign ( AOCL_ALIGNMENT, npoints * sizeof(int));
 	membership_new = (int*) malloc(npoints * sizeof(int));
 	for(int i=0;i<npoints;i++) {
@@ -121,8 +129,9 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &npoints);
 	errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &nfeatures);
 	CHKERR(errcode, "Failed to set kernel arg!");
-	globalWorkSize = npoints*nclusters;
-	localWorkSize = nclusters;
+
+    globalWorkSize = num_blocks*num_threads;
+    localWorkSize = num_threads;
 
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -138,6 +147,7 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 
     LSB_Rec(0);
 
+    
 }
 /* -------------- allocateMemory() end ------------------- */
 
@@ -229,8 +239,14 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     LSB_Set_Rparam_string("region", "setting_kernel_arguments");
     LSB_Res();
 #endif
-    size_t globalWorkSize[1] = {npoints*nclusters};
-    size_t localWorkSize[1] = {nclusters};
+    size_t localWorkSize[2] = {num_threads, 1};
+    size_t globalWorkSize[2] = {num_blocks*localWorkSize[0],
+                                num_blocks*localWorkSize[1]};
+    
+    //size_t globalWorkSize[2] = {npoints*nclusters};
+    printf("global work = %zi\n", globalWorkSize[0]);
+    //size_t localWorkSize[2] = {ocd_get_options().workgroup_1d,1};
+    printf("local work = %zi\n", localWorkSize[0]); 
 
 	unsigned int arg = 0;
 	errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);

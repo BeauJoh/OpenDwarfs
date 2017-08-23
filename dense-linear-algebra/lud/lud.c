@@ -61,6 +61,11 @@ main ( int argc, char *argv[] )
 
 	ocd_init(&argc, &argv, NULL);
 	ocd_initCL();
+    //set the local workgroup sizes
+    if (ocd_get_options().workgroup_1d != 0){
+        BLOCK_SIZE=ocd_get_options().workgroup_1d;
+    }
+    printf("BLOCK_SIZE = %i\n",BLOCK_SIZE);
 
 	while ((opt = getopt_long(argc, argv, "::vs:i:", 
 					long_options, &option_index)) != -1 ) {
@@ -128,9 +133,8 @@ main ( int argc, char *argv[] )
 	errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
 	CHKERR(errcode, "Failed to get device info!");
 	//Start by 16*16, but if not allowed divide by two until MAX_WORK_ITEM_SIZES is less or equal than what we are going to ask for.
-	while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
-		BLOCK_SIZE = BLOCK_SIZE/2;
-    
+	//while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
+	//	BLOCK_SIZE = BLOCK_SIZE/2;
     LSB_Rec(0);
 
     LSB_Set_Rparam_int("matrix_dimension",matrix_dim);

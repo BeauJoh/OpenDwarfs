@@ -97,6 +97,7 @@ size_t* default_wg_sizes(unsigned int* num_wg_sizes,const size_t max_wg_size,con
 {
 	unsigned int num_wg;
 	size_t* wg_sizes;
+    size_t local_size = max_wg_size;
 	(*num_wg_sizes)=1;
 	wg_sizes = malloc(sizeof(size_t)*(*num_wg_sizes));
 	check(wg_sizes != NULL,"csr.main() - Heap Overflow! Cannot allocate space for wg_sizes");
@@ -104,9 +105,11 @@ size_t* default_wg_sizes(unsigned int* num_wg_sizes,const size_t max_wg_size,con
 	num_wg = global_size / wg_sizes[0];
 	if(global_size % wg_sizes[0] != 0) //if wg_size is not a factor of global_size
 	{							//use min num_wg such that wg_size < global_size
-		num_wg++;
-		wg_sizes[0] = global_size / (num_wg);
+        local_size = 1;
+        while((global_size % local_size) == 0) local_size = local_size << 1;
+        local_size = local_size >> 1;
 	}
+    wg_sizes[0] = local_size;
 	return wg_sizes;
 }
 
@@ -407,6 +410,13 @@ int main(int argc, char** argv)
                         
                         LSB_Set_Rparam_string("region","device_side_h2d_copy");
                         LSB_Res();
+
+                        printf("Working kernel memory: %fKiB\n",
+                                (sizeof(unsigned int)*csr[k].num_rows+4+
+                                 sizeof(unsigned int)*csr[k].num_nonzeros+
+                                 sizeof(float)*csr[k].num_nonzeros+
+                                 sizeof(float)*csr[k].num_cols+
+                                 sizeof(float)*csr[k].num_rows)/1024.0);
 						/* Write our data set into the input array in device memory */
 						err = clEnqueueWriteBuffer(write_queue, csr_ap[k], CL_FALSE, 0, sizeof(unsigned int)*csr[k].num_rows+4, csr[k].Ap, 0, NULL, &ap_write[k]);
 						CHKERR(err, "Failed to write to source array!");

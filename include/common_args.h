@@ -38,6 +38,9 @@ typedef struct ocd_options
 	int  platform_id;
 	int  device_id;
 	int  device_type;
+    int  workgroup_1d;
+    int  workgroup_2d_x;
+    int  workgroup_2d_y;
     int  optimized;
 } ocd_options;
 extern ocd_options _settings;

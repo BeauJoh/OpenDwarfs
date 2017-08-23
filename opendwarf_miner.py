@@ -39,6 +39,10 @@ lud_coarse_iteration_profile = {
 csr = {'name':'csr',
        'alias':'csr',
        'default':'-i ../test/sparse-linear-algebra/SPMV/csr_65536.txt',
+       'tiny':'-i ../test/sparse-linear-algebra/SPMV/tiny',#generated with ./createcsr -n 736 -d 5000, all matrices have 0.5% density (99.5% sparse) 31.6KiB < 32KiB
+       'small':'-i ../test/sparse-linear-algebra/SPMV/small',#2416, 254.8KiB
+       'medium':'-i ../test/sparse-linear-algebra/SPMV/medium',#1433, 8195.5KiB
+       'large':'-i ../test/sparse-linear-algebra/SPMV/large',#16384, 10677.8KiB
        'full name':'Compressed Sparse Row'}
 fft = {'name':'clfft',
        'alias':'clfft',
@@ -209,10 +213,10 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 #selected_applications = [kmeans_coarse_iteration_profile]#kmeans]
-selected_applications = [lud_coarse_iteration_profile]#kmeans]
+selected_applications = [csr]#kmeans]
 #selected_applications.extend(dense_linear_algebra)
 
-selected_repetitions = 300
+selected_repetitions = 1#300
 selected_device = gpu_parameters
 selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
