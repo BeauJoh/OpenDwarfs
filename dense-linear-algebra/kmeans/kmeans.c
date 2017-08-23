@@ -76,13 +76,12 @@
 #include <limits.h>
 #include <math.h>
 #include <fcntl.h>
-#include <omp.h>
 #include <stdbool.h>
 #include "kmeans.h"
-#include <malloc.h>
 #include <unistd.h>
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
+#include "../../include/portable_memory.h"
 
 #define AOCL_ALIGNMENT 64
 extern double wtime(void);

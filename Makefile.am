@@ -8,7 +8,7 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -Werror
+#AM_CPPFLAGS = -Werror
 
 bin_PROGRAMS =
 all_local =
@@ -20,13 +20,13 @@ device_n = 0
 device_t = 0
 
 bin_PROGRAMS += ocd
-ocd_SOURCES = include/common_args.c include/rdtsc.c include/lsb.h
+ocd_SOURCES = include/common_args.c include/rdtsc.c include/lsb.h include/portable_memory.h include/portable_memory.c
 ocd_LINK = true
 
 noinst_LIBRARIES = libopts.a
 libopts_a_SOURCES = opts/opts.c 
 
-LDADD = include/common_args.o include/rdtsc.o libopts.a
+LDADD = include/common_args.o include/rdtsc.o include/portable_memory.o libopts.a
 
 #to use libscibench for timing:
 #build libscibench from the git repository:

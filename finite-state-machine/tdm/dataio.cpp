@@ -1,8 +1,8 @@
 #include "dataio.h"
 #include "global.h"
-#include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "../../include/portable_memory.h"
 
 #define AOCL_ALIGNMENT 64
 

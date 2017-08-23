@@ -5,10 +5,10 @@
 #include <math.h>
 #include <sys/time.h>
 #include <getopt.h>
-#include <malloc.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
+#include "../../include/portable_memory.h"
 
 #ifdef __FPGA__ 
     #include "cl_ext.h"
@@ -1533,5 +1533,5 @@ int main(int argc, char *argv[])
 	}
     LSB_Finalize();
 	ocd_finalize();//KK
-	return;
+	return(EXIT_SUCCESS);
 }

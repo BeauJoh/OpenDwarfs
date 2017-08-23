@@ -5,7 +5,7 @@
 #include <math.h>
 #include "srad.h"
 #include <string.h>
-#include <malloc.h>
+#include "../../include/portable_memory.h"
 //#include "/home/pallavid/altera/14.0/hld/host/include/CL/cl_ext.h"
 
 

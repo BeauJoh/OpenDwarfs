@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
-#include <malloc.h>
-
+#include "../../include/portable_memory.h"
 #include "common.h"
+
 #define AOCL_ALIGNMENT 64
 void stopwatch_start(stopwatch *sw){
 	if (sw == NULL)

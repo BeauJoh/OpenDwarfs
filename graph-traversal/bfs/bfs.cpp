@@ -11,13 +11,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <malloc.h>
 
 //#include "/home/pallavid/altera/14.0/hld/host/include/CL/cl_ext.h" //for memory banks
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
+#include "../../include/portable_memory.h"
 
 #include <utility>
 #define __NO_STD_VECTOR // Use cl::vector and cl::string and 

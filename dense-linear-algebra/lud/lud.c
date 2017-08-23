@@ -4,12 +4,13 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-#include <malloc.h>
 #include <string.h>
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
+#include "../../include/portable_memory.h"
+
 #include "common.h"
 
 //#define USEGPU 1

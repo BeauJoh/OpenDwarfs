@@ -2,6 +2,7 @@
 #define DATAIO_H_
 
 #include "types.h"
+#include "../../include/portable_memory.h"
 #include <stdio.h>
 
 void loadData(char* filename, ubyte** events, float** times, uint* eventCount, uint* eventType, uint* uniqueEvents);

@@ -9,7 +9,6 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
-#include <malloc.h>
 #include "types.h"
 #include "global.h"
 #include "dataio.h"
@@ -17,6 +16,7 @@
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
+#include "../../include/portable_memory.h"
 
 #define AOCL_ALIGNMENT 64
 unsigned int numCandidates;
