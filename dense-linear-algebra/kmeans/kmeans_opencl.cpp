@@ -11,6 +11,8 @@
 
 #define CPU_DELTA_REDUCE
 #define CPU_CENTER_REDUCE
+size_t working_kernel_memory = 0;
+size_t cluster_invokations = 0;
 
 extern "C"
 int setup(int argc, char** argv);									/* function prototype */
@@ -50,7 +52,9 @@ void initCL()
 
 	ocd_initCL();
     num_threads = ocd_get_options().workgroup_1d;
-
+    if(num_threads == 0){
+        num_threads = 16;
+    }
 	size_t max_worksize[3];
 	errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
 	CHKERR(errcode, "Failed to get device info!");
@@ -107,6 +111,7 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 
 	/* allocate memory for feature_flipped_d[][], feature_d[][] (device) */
 	feature_flipped_d = clCreateBuffer(context, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
+    //working_kernel_memory += sizeof(float)*npoints*nfeatures;
 
 	CHKERR(errcode, "Failed to create buffer!");
 
@@ -117,6 +122,7 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to create buffer!");
 	feature_d = clCreateBuffer(context, CL_MEM_READ_WRITE, npoints*nfeatures*sizeof(float), NULL, &errcode);
+    working_kernel_memory += sizeof(float)*npoints*nfeatures;
 	CHKERR(errcode, "Failed to create buffer!");
 
 	/* invert the data array (kernel execution) */	
@@ -138,8 +144,10 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 
 	/* allocate memory for membership_d[] and clusters_d[][] (device) */
 	membership_d = clCreateBuffer(context, CL_MEM_READ_WRITE, npoints*sizeof(int), NULL, &errcode);
+    working_kernel_memory += sizeof(int)*npoints;
 	CHKERR(errcode, "Failed to create buffer!");
 	clusters_d = clCreateBuffer(context, CL_MEM_READ_ONLY, nclusters*nfeatures*sizeof(float), NULL, &errcode);
+    working_kernel_memory += nclusters*nfeatures*sizeof(float);
 	CHKERR(errcode, "Failed to create buffer!");
 
     LSB_Rec(0);
@@ -241,9 +249,9 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
                                 num_blocks*localWorkSize[1]};
     
     //size_t globalWorkSize[2] = {npoints*nclusters};
-    printf("global work = %zi\n", globalWorkSize[0]);
+    //printf("global work = %zi\n", globalWorkSize[0]);
     //size_t localWorkSize[2] = {ocd_get_options().workgroup_1d,1};
-    printf("local work = %zi\n", localWorkSize[0]); 
+    //printf("local work = %zi\n", localWorkSize[0]); 
 
 	unsigned int arg = 0;
 	errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);
@@ -252,7 +260,6 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nclusters);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &membership_d);
 	errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &clusters_d);
-    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, nclusters*sizeof(float), NULL);
 	CHKERR(errcode, "Failed to set kernel arg!");
 #ifndef PROFILE_OUTER_LOOP
     LSB_Rec(0);
@@ -262,6 +269,11 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     LSB_Set_Rparam_string("region", "kmeans_kernel");
     LSB_Res();
 #endif
+    if (cluster_invokations == 0){
+        printf("Working kernel memory: %fKiB\n",
+                (working_kernel_memory)/1024.0);
+    }
+
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHKERR(errcode, "Failed to enqueue kernel! (kmeansPoint)");
 	errcode = clFinish(commands);
@@ -322,8 +334,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 #endif
 	}
 
+    cluster_invokations++;
 	return delta;
-
 }
 /* ------------------- kmeansCuda() end ------------------------ */    
 

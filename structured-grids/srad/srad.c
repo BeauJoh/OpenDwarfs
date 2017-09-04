@@ -329,6 +329,10 @@ runTest( int argc, char** argv)
 		errcode = clEnqueueWriteBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
         LSB_Rec(0);
+
+        printf("Working kernel memory: %fKiB\n",
+                (sizeof(float)*size_I*6)/1024.0);
+
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SRAD Data Copy", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(errcode, "Failed to enqueue write buffer!");

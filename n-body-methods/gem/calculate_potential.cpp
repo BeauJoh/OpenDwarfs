@@ -454,6 +454,25 @@ void calc_potential_single_step(residue *residues,
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Length Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 
+    printf("Working kernel memory: %fKiB\n",
+            ((sizeof(cl_float)*nres)+
+             (sizeof(cl_float)*nres)+
+             (sizeof(cl_float)*nres)+
+             (sizeof(cl_float)*nres)+
+             (sizeof(cl_float)*natoms)+
+             (sizeof(cl_float)*natoms)+
+             (sizeof(cl_float)*natoms)+
+             (sizeof(cl_float)*natoms)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_float)*nvert)+
+             (sizeof(cl_int)*nres)+
+             (sizeof(cl_int)*nres))/1024.0);
+
     LSB_Rec(0);
     LSB_Set_Rparam_string("region", "setting_kernel_arguments");
     LSB_Res();

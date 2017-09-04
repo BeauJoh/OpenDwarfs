@@ -106,11 +106,11 @@ int cluster(int      npoints,				/* number of data points */
 	{
 		if (nclusters > npoints) break;	/* cannot have more clusters than points */
 
-        float feature_size = (float)(npoints*nfeatures*sizeof(float));
-        float membership_size = (float)(npoints*sizeof(int));
-        float cluster_size = nclusters*nfeatures*sizeof(float);
-        printf("Working kernel memory: %fKiB\n",
-                (feature_size+membership_size+cluster_size)/1024.0);
+        //float feature_size = (float)(npoints*nfeatures*sizeof(float));
+        //float membership_size = (float)(npoints*sizeof(int));
+        //float cluster_size = nclusters*nfeatures*sizeof(float);
+        //printf("Working kernel memory: %fKiB\n",
+        //        (feature_size+membership_size+cluster_size)/1024.0);
 
 		/* allocate device memory, invert data array (@ kmeans_cuda.cu) */
 		allocateMemory(npoints, nfeatures, nclusters, features);

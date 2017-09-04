@@ -13,6 +13,11 @@
 
 #include "fftlib.h"
 using namespace std;
+//#define PRINT_RESULT
+bool isPowerOfTwo(unsigned int x)
+{
+    return (x != 0) && ((x & (x - 1)) == 0);
+}
 
 // ****************************************************************************
 // Function: addBenchmarkSpecOptions
@@ -32,9 +37,9 @@ using namespace std;
 	void 
 addBenchmarkSpecOptions(OptionParser &op) 
 {
-	op.addOption("pts", OPT_INT, "0", "data size (in megabytes)");
-	op.addOption("pts1", OPT_INT, "0", "data size (in megabytes)");
-	op.addOption("pts2", OPT_INT, "0", "data size (in megabytes)");
+	op.addOption("pts", OPT_INT, "0", "data size (# of elements)");
+	op.addOption("pts1", OPT_INT, "0", "data size (# of elements)");
+	op.addOption("pts2", OPT_INT, "0", "data size (# of elements)");
 	op.addOption("2D", OPT_BOOL, "false", "2D FFT");
 }
 
@@ -71,9 +76,6 @@ RunBenchmark(OptionParser &op)
 {
 	// convert from C++ bindings to C bindings
 	// TODO propagate use of C++ bindings
-
-
-
 	if(op.getOptionBool("2D"))
 		dump2D<cplxflt>(op);
 	else
@@ -110,6 +112,7 @@ template <> inline bool dp<cplxflt>(void) { return false; }
 template <> inline bool dp<cplxdbl>(void) { return true; }
 
 
+
 // ****************************************************************************
 // Function: dump
 //
@@ -135,22 +138,34 @@ void dump2D(OptionParser& op)
 	void* work, *temp;
 	T2* source, * result;
 	unsigned long bytes = 0;
-
-	int probSizes[7] = { 128, 256, 512, 1024, 2048, 4096, 8192};
+/*
+	int probSizes[8] = { 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
 	int sizeIndex = op.getOptionInt("pts1")-1;
 	int sizeIndey = op.getOptionInt("pts2")-1;
-	if (sizeIndex < 0 || sizeIndex >= 7) {
+	if (sizeIndex < 0 || sizeIndex >= 8) {
 		cerr << "Invalid size index specified\n";
 		exit(-1);
 	}
-	if (sizeIndey < 0 || sizeIndey >= 7) {
+	if (sizeIndey < 0 || sizeIndey >= 8) {
 		cerr << "Invalid size index specified\n";
 		exit(-1);
 	}
 
 	int FFTN1=probSizes[sizeIndex],FFTN2=probSizes[sizeIndey];
 	//int FFTN1=8192,FFTN2=512;
-	unsigned long used_bytes = FFTN1*FFTN2*sizeof(T2);
+*/ 
+    int FFTN1=op.getOptionInt("pts1");
+    int FFTN2=op.getOptionInt("pts2");
+    if(FFTN1 == 0 || FFTN2 == 0){
+        printf("2D must have pts1 and pts2 arguments\n");
+        exit(-1);
+    }
+    if(!isPowerOfTwo(FFTN1) || !isPowerOfTwo(FFTN2)){
+        printf("pts1 and pts2 must be powers of 2\n");
+        exit(-1);
+    }
+
+    unsigned long used_bytes = FFTN1*FFTN2*sizeof(T2);
 
 	bool do_dp = dp<T2>();
 	init2(op, do_dp, FFTN1, FFTN2);
@@ -182,9 +197,12 @@ void dump2D(OptionParser& op)
     finalize(); 
 
 #ifdef PRINT_RESULT
-	for (i = 0; i < N; i++) {
-		fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
-	}
+    float sum = 0.0f;
+    for (i = 0; i < N; i++) {
+        sum += result[i].x + result[i].y;
+        fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
+    }
+    printf("sum = %f\n", sum);
 #endif
 	freeDeviceBuffer(work);
 	freeDeviceBuffer(temp);
@@ -196,18 +214,28 @@ void dump2D(OptionParser& op)
 void dump1D(OptionParser& op)
 {	
 	int i;
-	int fftn;
 	void* work, *temp;
 	T2* source, * result;
 	unsigned long bytes = 0;
-
-	int probSizes[7] = { 128, 256, 512, 1024, 2048, 4096, 8192 };
+/*
+	int fftn;
+	int probSizes[8] = { 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
 	int sizeIndex = op.getOptionInt("pts")-1;
-	if (sizeIndex < 0 || sizeIndex >= 7) {
+	if (sizeIndex < 0 || sizeIndex >= 8) {
 		cerr << "Invalid size index specified\n";
 		exit(-1);
 	}
 	fftn = probSizes[sizeIndex];
+*/
+    int fftn=op.getOptionInt("pts");
+    if(fftn == 0){
+        printf("1D must have pts argument\n");
+        exit(-1);
+    }
+    if(!isPowerOfTwo(fftn)){
+        printf("pts must be a power of 2\n");
+        exit(-1);
+    }
 
 	// Convert to MB
 	unsigned long used_bytes = fftn * sizeof(T2);
@@ -237,6 +265,7 @@ void dump1D(OptionParser& op)
 	allocDeviceBuffer(&temp, used_bytes);
 	copyToDevice(work, source, used_bytes);
 
+    printf("Working kernel memory: %fKiB\n",(used_bytes*2)/1024.0);
 
 	forward(work, temp, n_ffts, fftn);
 
@@ -244,9 +273,12 @@ void dump1D(OptionParser& op)
 
     finalize();
 #ifdef PRINT_RESULT
-	for (i = 0; i < N; i++) {
-		fprintf(stdout, "data[%d] (%g, %g)\n", i, result[i].x, result[i].y);
-	}
+    float sum = 0.0f;
+    for (i = 0; i < N; i++) {
+        sum += result[i].x + result[i].y;
+        fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
+    }
+    printf("sum = %f\n", sum);
 #endif
 	freeDeviceBuffer(work);
 	freeDeviceBuffer(temp);

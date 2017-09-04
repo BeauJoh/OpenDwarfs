@@ -42,9 +42,7 @@ kmeansPoint(__global float  *features, /* in: [npoints*nfeatures] */
             int     npoints,
             int     nclusters,
             __global int    *membership,
-            __global float  *clusters,
-            __local float *dist
-        )
+            __global float  *clusters)
 {
     // block ID
     const unsigned int block_id = get_num_groups(0)*get_group_id(1)+get_group_id(0);

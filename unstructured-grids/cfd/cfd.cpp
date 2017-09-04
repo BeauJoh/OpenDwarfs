@@ -10,6 +10,7 @@
 #include "../../include/portable_memory.h"
 
 #define AOCL_ALIGNMENT 64
+size_t working_kernel_memory = 0;
 
 typedef struct{
 	float x;
@@ -209,8 +210,7 @@ int main(int argc, char** argv)
 	cl_mem ff_fc_momentum_y;
 	cl_mem ff_fc_momentum_z;
 	cl_mem ff_fc_density_energy;
-
-	if (argc < 2)
+	if (argc != 2)
 	{
 		printf("Usage ./cfd <data input file>\n");
 		return 0;
@@ -260,14 +260,19 @@ int main(int argc, char** argv)
 		// copy far field conditions to the gpu
 		ff_variable = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * NVAR, h_ff_variable, &err);
 		CHKERR(err, "Unable to allocate ff data");
+        working_kernel_memory += sizeof(float)*NVAR;
 		ff_fc_momentum_x = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_momentum_x, &err);
 		CHKERR(err, "Unable to allocate ff data");
+        working_kernel_memory += sizeof(float3);
 		ff_fc_momentum_y = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_momentum_y, &err);
 		CHKERR(err, "Unable to allocate ff data");
+        working_kernel_memory += sizeof(float3);
 		ff_fc_momentum_z = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_momentum_z, &err);
 		CHKERR(err, "Unable to allocate ff data");
+        working_kernel_memory += sizeof(float3);
 		ff_fc_density_energy = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_density_energy, &err);
 		CHKERR(err, "Unable to allocate ff data");
+        working_kernel_memory += sizeof(float3);
         LSB_Rec(0);
 	}
 	int nel;
@@ -334,13 +339,17 @@ int main(int argc, char** argv)
 		}
 
 		areas = alloc<float>(context, nelr);
+        working_kernel_memory += sizeof(float)*nelr;
 		upload<float>(commands, areas, h_areas, nelr);
 
 		elements_surrounding_elements = alloc<int>(context, nelr*NNB);
+        working_kernel_memory += sizeof(int)*nelr*NNB;
 		upload<int>(commands, elements_surrounding_elements, h_elements_surrounding_elements, nelr*NNB);
 
 		normals = alloc<float>(context, nelr*NDIM*NNB);
+        working_kernel_memory += sizeof(float)*nelr*NDIM*NNB;
 		upload<float>(commands, normals, h_normals, nelr*NDIM*NNB);
+        
 
 		delete[] h_areas;
 		delete[] h_elements_surrounding_elements;
@@ -376,6 +385,8 @@ int main(int argc, char** argv)
 
 	// Create arrays and set initial conditions
 	cl_mem variables = alloc<cl_float>(context, nelr*NVAR);
+    working_kernel_memory += sizeof(cl_float)*nelr*NVAR;
+
     LSB_Rec(0);
 
     LSB_Set_Rparam_string("region", "setting_kernel_initialize_variables_arguments");
@@ -405,13 +416,17 @@ int main(int argc, char** argv)
     LSB_Set_Rparam_string("region", "device_side_buffer_setup");
     LSB_Res();
 	cl_mem old_variables = alloc<float>(context, nelr*NVAR);
-	cl_mem fluxes = alloc<float>(context, nelr*NVAR);
-	cl_mem step_factors = alloc<float>(context, nelr);
+    working_kernel_memory += sizeof(float)*nelr*NVAR;
+    cl_mem fluxes = alloc<float>(context, nelr*NVAR);
+	working_kernel_memory += sizeof(float)*nelr*NVAR;
+    cl_mem step_factors = alloc<float>(context, nelr);
+    working_kernel_memory += sizeof(float)*nelr;
 	clFinish(commands);
 	cl_mem fc_momentum_x = alloc<float>(context, nelr*NDIM);
-	cl_mem fc_momentum_y = alloc<float>(context, nelr*NDIM);
+    cl_mem fc_momentum_y = alloc<float>(context, nelr*NDIM);
 	cl_mem fc_momentum_z = alloc<float>(context, nelr*NDIM);
 	cl_mem fc_density_energy = alloc<float>(context, nelr*NDIM);
+    working_kernel_memory += sizeof(float)*nelr*NDIM*4;
 	clFinish(commands);
     LSB_Rec(0);
 
@@ -468,9 +483,13 @@ int main(int argc, char** argv)
     LSB_Res();
 	step_factors = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * nelr, temp, &err);
 	CHKERR(err, "Unable to memset step_factors");
+    working_kernel_memory += sizeof(float)*nelr;
 	// make sure CUDA isn't still doing something before we start timing
 	clFinish(commands);
     LSB_Rec(0);
+
+    printf("Working kernel memory: %fKiB\n",
+            working_kernel_memory/1024.0);
 
 	// these need to be computed the first time in order to compute time step
 	std::cout << "Starting..." << std::endl;

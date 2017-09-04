@@ -5,19 +5,19 @@ from opendwarf_miner_utils import *
 kmeans = {'name':'kmeans',
           'alias':'kmeans',
           'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
-          'tiny':'-g -p 26 -f 256',     #< 32K, object increments of 1KiB
-          'small':'-g -p 26 -f 2048',   #< 256K, object increments of 8KiB
-          'medium':'-g -p 26 -f 65536', #< 8196K, object increments of 256KiB
-          'large':'-g -p 26 -f 524288', #> 8196K, object increments of 2048KiB
+          'tiny':'-g -f 30 -p 256',     #< 32K, object increments of 1KiB
+          'small':'-g -f 30 -p 2048',   #< 256K, object increments of 8KiB
+          'medium':'-g -f 30 -p 65600', #< 8196K, object increments of 256KiB
+          'large':'-g -f 30 -p 131072', #> 8196K, object increments of 2048KiB
           'full name':'K-Means Clustering'}
 kmeans_coarse_iteration_profile = {
         'name':'kmeans_profiling_outer_loop',
         'alias':'kmeans',
         'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
-        'tiny':'-g -p 26 -f 256',     # 1KiB
-        'small':'-g -p 26 -f 2048',   # 8KiB
-        'medium':'-g -p 26 -f 65536', # 256KiB
-        'large':'-g -p 26 -f 524288', # 2048KiB
+        'tiny':'-g -f 30 -p 256',     # 1KiB
+        'small':'-g -f 30 -p 2048',   # 8KiB
+        'medium':'-g -f 30 -p 65600', # 256KiB
+        'large':'-g -f 30 -p 131072', # 2048KiB
         'full name':'K-Means Clustering'}
 lud = {'name':'lud',
        'alias':'lud',
@@ -41,24 +41,40 @@ csr = {'name':'csr',
        'default':'-i ../test/sparse-linear-algebra/SPMV/csr_65536.txt',
        'tiny':'-i ../test/sparse-linear-algebra/SPMV/tiny',#generated with ./createcsr -n 736 -d 5000, all matrices have 0.5% density (99.5% sparse) 31.6KiB < 32KiB
        'small':'-i ../test/sparse-linear-algebra/SPMV/small',#2416, 254.8KiB
-       'medium':'-i ../test/sparse-linear-algebra/SPMV/medium',#1433, 8195.5KiB
+       'medium':'-i ../test/sparse-linear-algebra/SPMV/medium',#14336, 8195.5KiB
        'large':'-i ../test/sparse-linear-algebra/SPMV/large',#16384, 10677.8KiB
        'full name':'Compressed Sparse Row'}
 fft = {'name':'clfft',
        'alias':'clfft',
        'default':'--pts 1',
+       'tiny':'--2D  --pts1 128 --pts2 16', #32KiB
+       'small':'--2D  --pts1 128 --pts2 128', #256KiB
+       'medium':'--2D  --pts1 1024 --pts2 512', #8196KiB
+       'large':'--2D  --pts1 2048 --pts2 1024', #32768KiB
        'full name':'Fast Fourier Transform'}
 gem = {'name':'gem',
        'alias':'gem',
        'default':"../test/n-body-methods/gem/nucleosome 80 1 0",
+       'tiny':"../test/n-body-methods/gem/4TUT 80 1 0", #31.3KiB
+       'small':"../test/n-body-methods/gem/2D3V 80 1 0", #252.0KiB
+       'medium':'../test/n-body-methods/gem/nucleosome 80 1 0', #7498.1KiB
+       'large':'../test/n-body-methods/gem/1KX5 80 1 0', #10970.2KiB
        'full name':'Gemnoui'}
 srad = {'name':'srad',
         'alias':'srad',
         'default':'256 256 0 127 0 127 0.5 2',
+        'tiny':'80 16 0 127 0 127 0.5 1',#30KiB
+        'small':'128 80 0 127 0 127 0.5 1',#240KiB
+        'medium':'1024 336 0 127 0 127 0.5 1',#8064KiB
+        'large':'2048 1024 0 127 0 127 0.5 1',#49152KiB
         'full name':'Speckle Reducing Anisotropic Diffusion'}
 cfd = {'name':'cfd',
        'alias':'cfd',
        'default':'../test/unstructured-grids/cfd/fvcorr.domn.097K',
+       'tiny':'../test/unstructured-grids/cfd/128.dat',#23.066KiB
+       'small':'../test/unstructured-grids/cfd/1284.dat',#253.066KiB
+       'medium':'../test/unstructured-grids/cfd/45056.dat',#8096KiB
+       'large':'../test/unstructured-grids/cfd/193474.dat',#34776.066KiB
        'full name':'Computational Fluid Dynamics'}
 crc = {'name':'crc',
        'alias':'crc',
@@ -105,7 +121,7 @@ finite_state_machines = [tdm]
 
 #System specific device parameters
 cpu_parameters = GenerateDeviceParameters(0,0,0)
-gpu_parameters = GenerateDeviceParameters(1,0,1)
+gpu_parameters = GenerateDeviceParameters(0,1,1)
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
@@ -206,19 +222,19 @@ papi_envs = [
 #selected_papi_envs = papi_envs
 selected_papi_envs = []
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'cpu_energy_nanojoules'])
-selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'gpu_energy_milliwatts'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'gpu_energy_milliwatts'])
 selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 #selected_applications = [kmeans_coarse_iteration_profile]#kmeans]
-selected_applications = [csr]#kmeans]
+selected_applications = [fft]#csr,kmeans]
 #selected_applications.extend(dense_linear_algebra)
 
 selected_repetitions = 1#300
 selected_device = gpu_parameters
-selected_problem_sizes = ['tiny','small','medium','large']
+selected_problem_sizes = ['default']#['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
     for papi_env in selected_papi_envs:
