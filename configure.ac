@@ -73,23 +73,22 @@ if test ! -z "$OPENCL_SDK_PREFIX" ; then
 fi
 AC_SUBST(OPENCL_SDK_PREFIX)
 
+AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
+AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
 
 ### We need OpenCL
 AC_ARG_WITH([opencl], AS_HELP_STRING([--with-opencl],[path to OpenCL]),
 	[OPENCL_PREFIX=$withval],[OPENCL_PREFIX=])
 if test ! -z "$OPENCL_PREFIX" ; then
    PAC_APPEND_FLAG([-L${OPENCL_PREFIX}],[LDFLAGS])
+   if test ! -z "$HEADER_LINUX" ; then
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_PREFIX}],[LDFLAGS])
+   fi
 fi
 
 ###Specify build with Altera OpenCL SDK
 AC_ARG_WITH([AOCL], AS_HELP_STRING([--with-AOCL],[path to Altera OpenCl SDK]),
 	[AOCL_ROOT=$withval],[AOCL_ROOT=])
-
-
-AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
-AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
-
 
 if test ! -z "$HEADER_LINUX";
 then
@@ -158,7 +157,9 @@ AC_ARG_WITH([libscibench],
 if test ! -z "$LIBSCIBENCH_PREFIX" ; then
    PAC_APPEND_FLAG([-I${LIBSCIBENCH_PREFIX}/include],[CPPFLAGS])
    PAC_APPEND_FLAG([-L${LIBSCIBENCH_PREFIX}/lib],[LDFLAGS])
+   if test ! -z "$HEADER_LINUX"; then
    PAC_APPEND_FLAG([-Wl,-rpath=${LIBSCIBENCH_PREFIX}/lib],[LDFLAGS])
+   fi
    PAC_APPEND_FLAG([-llsb],[LIBS])
    PAC_APPEND_FLAG([-DTIME_WITH_LIBSCIBENCH],[CPPFLAGS])
    AC_MSG_RESULT([using LibSciBench ... -I${LIBSCIBENCH_PREFIX}/include -L${LIBSCIBENCH_PREFIX}/lib])
@@ -169,7 +170,9 @@ AC_ARG_WITH([papi],
 if test ! -z "$LIBPAPI_PREFIX" ; then
    PAC_APPEND_FLAG([-I${LIBPAPI_PREFIX}/include],[CPPFLAGS])
    PAC_APPEND_FLAG([-L${LIBPAPI_PREFIX}/lib],[LDFLAGS])
-   PAC_APPEND_FLAG([-Wl,-rpath=${LIBPAPI_PREFIX}/lib],[LDFLAGS])
+   if test ! -z "$HEADER_LINUX"; then
+       PAC_APPEND_FLAG([-Wl,-rpath=${LIBPAPI_PREFIX}/lib],[LDFLAGS])
+    fi
    PAC_APPEND_FLAG([-lpapi],[LIBS])
    AC_MSG_RESULT([using papi ... -I${LIBPAPI_PREFIX}/include -L${LIBPAPI_PREFIX}/lib])
 fi
