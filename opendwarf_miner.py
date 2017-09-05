@@ -119,9 +119,24 @@ backtrack_branch_and_bound = [nqueens]
 graphical_models = [hmm]
 finite_state_machines = [tdm]
 
+dwarfs = [dense_linear_algebra,
+        sparse_linear_algebra,
+        spectral_methods,
+        n_body_methods,
+        structured_grid_methods]
+
 #System specific device parameters
-cpu_parameters = GenerateDeviceParameters(0,0,0)
-gpu_parameters = GenerateDeviceParameters(0,1,1)
+device_parameters = None
+import socket
+if socket.gethostname() == "Beaus-MacBook-Air.local":
+    device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
+
+if socket.gethostname() == "gpgpu": 
+    device_parameters = GenerateDeviceParameters(0,0,2)#i7-6700K
+    device_parameters = GenerateDeviceParameters(0,1,1)#GTX 1080
+
+if socket.gethostname() == "node03":
+    device_parameters = GenerateDeviceParameters(0,0,0)#knights landing
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
@@ -229,12 +244,15 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 #selected_applications = [kmeans_coarse_iteration_profile]#kmeans]
-selected_applications = [fft]#csr,kmeans]
+#selected_applications = [fft]#csr,kmeans]
 #selected_applications.extend(dense_linear_algebra)
 
-selected_repetitions = 1#300
-selected_device = gpu_parameters
-selected_problem_sizes = ['default']#['tiny','small','medium','large']
+#if running the whole list of dwarfs, we need to flatten the list first
+selected_applications = reduce(lambda x,y :x+y ,dwarfs)
+
+selected_repetitions = 10#300
+selected_device = device_parameters
+selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
     for papi_env in selected_papi_envs:

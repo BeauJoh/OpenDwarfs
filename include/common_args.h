@@ -14,9 +14,10 @@ extern "C" {
 #include <OpenCL/opencl.h>
 #endif
 #include <string.h>
-#include "rdtsc.h"
 #include <stdio.h>
+#include <stdlib.h>
 
+#include "rdtsc.h"
 #define USEGPU 1
 
 #define MINIMUM(i,j) ((i)<(j) ? (i) : (j))
