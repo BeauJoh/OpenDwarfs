@@ -138,6 +138,12 @@ if socket.gethostname() == "gpgpu":
 if socket.gethostname() == "node03":
     device_parameters = GenerateDeviceParameters(0,0,2)#knights landing
 
+if socket.gethostname() == "node33":
+    device_parameters = GenerateDeviceParameters(0,0,1)#firepro s9150
+
+if socket.gethostname() == "node01":
+    device_parameters = GenerateDeviceParameters(0,0,0)#ivybridge Xeon E5-2697v2
+
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
 
@@ -236,9 +242,9 @@ papi_envs = [
 #computation and thus the run time
 #selected_papi_envs = papi_envs
 selected_papi_envs = []
-selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'cpu_energy_nanojoules'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'cpu_energy_nanojoules'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'gpu_energy_milliwatts'])
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
