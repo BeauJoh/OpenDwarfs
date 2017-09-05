@@ -132,11 +132,11 @@ if socket.gethostname() == "Beaus-MacBook-Air.local":
     device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
 
 if socket.gethostname() == "gpgpu": 
-    device_parameters = GenerateDeviceParameters(0,0,2)#i7-6700K
-    device_parameters = GenerateDeviceParameters(0,1,1)#GTX 1080
+    device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
+    #device_parameters = GenerateDeviceParameters(0,1,1)#GTX 1080
 
 if socket.gethostname() == "node03":
-    device_parameters = GenerateDeviceParameters(0,0,0)#knights landing
+    device_parameters = GenerateDeviceParameters(0,0,2)#knights landing
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
@@ -236,9 +236,9 @@ papi_envs = [
 #computation and thus the run time
 #selected_papi_envs = papi_envs
 selected_papi_envs = []
-#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'cpu_energy_nanojoules'])
+selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'cpu_energy_nanojoules'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'gpu_energy_milliwatts'])
-selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
+#selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L1_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
@@ -250,7 +250,7 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #if running the whole list of dwarfs, we need to flatten the list first
 selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
-selected_repetitions = 10#300
+selected_repetitions = 50#300
 selected_device = device_parameters
 selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
