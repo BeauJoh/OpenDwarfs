@@ -30,6 +30,12 @@
 #include <ctype.h>
 #include <math.h>
 
+/* returns the minimum, a or b */
+#define min(a, b) (a < b)?a:b
+
+/* returns the maximum, a or b */
+#define max(a, b) (a > b)?a:b
+
 /********************************************************************
  * FUNCTION: extrapolate_bonds (tries to find bonds between atoms)  *
  *                                                                  *

@@ -32,6 +32,11 @@
 
 #define PQR_LINE_SIZE 512
 #define PQR_CHARGE_WARN_TOL .01
+/* returns the minimum, a or b */
+#define min(a, b) (a < b)?a:b
+
+/* returns the maximum, a or b */
+#define max(a, b) (a > b)?a:b
 
 /**************************************************************************
  * FUNCTION: gather_mol_info --gathers information about spatial          *

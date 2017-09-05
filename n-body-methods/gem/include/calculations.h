@@ -154,10 +154,10 @@ int extract_statistics (residue *, int, vertx *, int, float[3], float[3], float[
 /************/
 
 /* returns the minimum, a or b */
-#define min(a, b) (a < b)?a:b
+//#define min(a, b) (a < b)?a:b
 
 /* returns the maximum, a or b */
-#define max(a, b) (a > b)?a:b
+//#define max(a, b) (a > b)?a:b
 
 /* clamps a between b and c */
 #define clamp(a, b, c) (max(b, (min(a, c))))
