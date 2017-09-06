@@ -144,6 +144,9 @@ if socket.gethostname() == "node33":
 if socket.gethostname() == "node01":
     device_parameters = GenerateDeviceParameters(0,0,0)#ivybridge Xeon E5-2697v2
 
+if socket.gethostname() == "node23":
+    device_parameters = GenerateDeviceParameters(0,0,1)#titanx
+
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
 
