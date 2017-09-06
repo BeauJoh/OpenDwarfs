@@ -42,7 +42,7 @@ void initCL()
     LSB_Set_Rparam_string("region", "kernel_creation");
     LSB_Res();
 
-    cl_int errcode;
+    cl_int errcode = 0;
 
     ocd_initCL();
     localWorkSize = ocd_get_options().workgroup_1d;
