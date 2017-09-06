@@ -127,21 +127,28 @@ dwarfs = [dense_linear_algebra,
 
 #System specific device parameters
 device_parameters = None
+device_name = None
 import socket
 if socket.gethostname() == "Beaus-MacBook-Air.local":
+    device_name = "intel_hd_graphics_5000"
     device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
 
 if socket.gethostname() == "gpgpu": 
-    device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
-    #device_parameters = GenerateDeviceParameters(0,1,1)#GTX 1080
+    #device_name = "i7-6700k"
+    #device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
+    device_name = "gtx1080"
+    device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
 
 if socket.gethostname() == "node03":
+    device_name = "knl"
     device_parameters = GenerateDeviceParameters(0,0,2)#knights landing
 
 if socket.gethostname() == "node33":
+    device_name = "firepro_s9150"
     device_parameters = GenerateDeviceParameters(0,0,1)#firepro s9150
 
 if socket.gethostname() == "node01":
+    device_name = "xeon_es-2697v2"
     device_parameters = GenerateDeviceParameters(0,0,0)#ivybridge Xeon E5-2697v2
 
 #Sample usage of utils:
@@ -270,7 +277,7 @@ for application in selected_applications:
                                                    papi_env['parameters'])
             if all_good:
                 StoreRun(application,
-                        'results/gpu_'+application['name']+'_'+problem_size+'_'+papi_env['name'])
+                        'results/'+device_name+'_'+application['name']+'_'+problem_size+'_'+papi_env['name'])
             else:
                 import ipdb
                 ipdb.set_trace()
