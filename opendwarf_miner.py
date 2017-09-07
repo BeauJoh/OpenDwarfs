@@ -120,10 +120,10 @@ graphical_models = [hmm]
 finite_state_machines = [tdm]
 
 dwarfs = [dense_linear_algebra,
-        sparse_linear_algebra,
-        spectral_methods,
-        n_body_methods,
-        structured_grid_methods]
+        sparse_linear_algebra]#,
+        #spectral_methods,
+        #n_body_methods,
+        #structured_grid_methods]
 
 #System specific device parameters
 device_parameters = None
@@ -152,7 +152,22 @@ if socket.gethostname() == "node01":
     device_parameters = GenerateDeviceParameters(0,0,0)#ivybridge Xeon E5-2697v2
 
 if socket.gethostname() == "node23":
+    #device_name = "gtx1080ti"
+    #device_parameters = GenerateDeviceParameters(0,0,1)#gtx1080ti
+    device_name = "titanx"
     device_parameters = GenerateDeviceParameters(0,0,1)#titanx
+
+if socket.gethostname() == "node20":
+    #device_name = "k20c"
+    #device_parameters = GenerateDeviceParameters(0,0,1)#k20c
+    device_name = "k40c"
+    device_parameters = GenerateDeviceParameters(0,0,1)#k40c
+
+if socket.gethostname() == "node02":
+    #device_name = "spectre"
+    #device_parameters = GenerateDeviceParameters(0,0,1)#spectre gpu
+    device_name = "a10-780k"
+    device_parameters = GenerateDeviceParameters(0,1,1)#AMD A10-7850K Radeon R7
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
@@ -268,6 +283,8 @@ selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
+#selected_applications = [csr]
+#selected_problem_sizes = ['small','medium','large']
 selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
