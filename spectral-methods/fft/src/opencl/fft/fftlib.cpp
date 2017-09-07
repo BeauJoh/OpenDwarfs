@@ -258,6 +258,7 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 	    err = clBuildProgram(fftProg, 1, &device_id, "-DOPENCL -I.", NULL, NULL);
     else 
 	    err = clBuildProgram(fftProg, 0, NULL, args.c_str(), NULL, NULL);
+    CL_CHECK_ERROR(err);
 #ifdef ENABLE_DEBUG
 	{
 		char* log = NULL;
@@ -461,12 +462,12 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 		getGlobalDimension(localsz, globalsz, 1, fftn1, 1);
 		globalsz = globalsz * localsz*fftn2;
 	}
-	getGlobalDimension(localsz1, globalsz1, fftn1, fftn2, 0);
+	getGlobalDimension(localsz1, globalsz1, 1, fftn1, 0);
 	globalsz1 = globalsz1 * localsz1;
     LSB_Set_Rparam_string("region", "setting_fftKrnl_0_1_2_kernel_arguments");
     LSB_Res();
 	if(fftn2>128){
-        getGlobalDimension(localsz2, globalsz2, fftn1, fftn2, 1);
+        getGlobalDimension(localsz2, globalsz2, 1, fftn2, 1);
 		globalsz2 = globalsz2 * localsz2;
 		clSetKernelArg(fftKrnl2, 0, sizeof(cl_mem), temp);
 		clSetKernelArg(fftKrnl2, 1, sizeof(cl_mem), workp);
@@ -533,7 +534,7 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 	CHKERR(err, "Failed to wait for events!");
 
 	if(fftn2>128){
-		//	printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
+		//printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
         LSB_Set_Rparam_string("region", "fftKrnl2_kernel");
         LSB_Res();
 		err = clEnqueueNDRangeKernel(commands, fftKrnl2, 1, NULL, 

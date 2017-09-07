@@ -184,17 +184,17 @@ void dump2D(OptionParser& op)
 		source[i].y = (rand()/(float)RAND_MAX)*2-1;
 	}
 
-	// alloc device memory
-	allocDeviceBuffer(&work, used_bytes);
-	allocDeviceBuffer(&temp, used_bytes);
+    // alloc device memory
+    allocDeviceBuffer(&work, used_bytes);
+    allocDeviceBuffer(&temp, used_bytes);
 
-	copyToDevice(work, source, used_bytes);
+    copyToDevice(work, source, used_bytes);
     printf("Working kernel memory: %fKiB\n",
                                 (used_bytes*2)/1024.0);
-	forward2(work, temp, n_ffts, FFTN1, FFTN2);
-	copyFromDevice(result, work, used_bytes);
-    
-    finalize(); 
+    forward2(work, temp, n_ffts, FFTN1, FFTN2);
+    copyFromDevice(result, work, used_bytes);
+
+    finalize();
 
 #ifdef PRINT_RESULT
     float sum = 0.0f;
