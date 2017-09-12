@@ -263,7 +263,14 @@ void dump1D(OptionParser& op)
 		source[i].x = 1.0f; //(rand()/(float)RAND_MAX)*2-1;
 		source[i].y = 0.0f; //(rand()/(float)RAND_MAX)*2-1;
 	}
-
+    // init host memory as a sign wave...
+    //np.sin(np.arange(-10.0,10.0,20.0/128.0)
+    i = 0;
+	for (float z = -10.0f; z < 10.0f; z+= 20.0/N) {
+		source[i].x = sin(z); //(rand()/(float)RAND_MAX)*2-1;
+		source[i].y = 0.0f; //(rand()/(float)RAND_MAX)*2-1;
+        i++;
+	}
 	// alloc device memory
 	allocDeviceBuffer(&work, used_bytes);
 	allocDeviceBuffer(&temp, used_bytes);
@@ -273,20 +280,20 @@ void dump1D(OptionParser& op)
 
 	forward(work, temp, n_ffts, fftn);
 
-	copyFromDevice(result, work, used_bytes);
+	copyFromDevice(result, temp, used_bytes);
 
     finalize();
 #define PRINT_RESULT
 #ifdef PRINT_RESULT
     float sum = 0.0f;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < N; i++) {
         sum += result[i].x + result[i].y;
         fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
     }
     printf("sum = %f\n", sum);
 #endif
-	freeDeviceBuffer(&work);
-	freeDeviceBuffer(&temp);
-	freeHostBuffer((void**)&source);
-	freeHostBuffer((void**)&result);
+	freeDeviceBuffer(work);
+	freeDeviceBuffer(temp);
+	freeHostBuffer(source);
+	freeHostBuffer(result);
 }

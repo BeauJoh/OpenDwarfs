@@ -88,23 +88,23 @@ void getLocalDimension(size_t &localsz, size_t &globalsz, int fftn1, int fftn2)
 	getLocalRadix(fftn1, radix, &numRadix, 0);
 	if(fftn1/radix[0] > wg_size)
 		getLocalRadix(fftn1, radix, &numRadix, 32);
-	//for(int i = 0; i < numRadix; i++)
-	//{      
-	//	assert( radix[i] && !( (radix[i] - 1) & radix[i] ) );
-	//}
-    //globalsz = fftn1;
+	for(int i = 0; i < numRadix; i++)
+	{      
+		assert( radix[i] && !( (radix[i] - 1) & radix[i] ) );
+	}
+    globalsz = fftn1;
+    localsz = globalsz;
     //localsz = radix[0];
-	int batchsize = Radix2 == 1 ? wg_size : 1;
-	int num_item_per_wg =((fftn1/radix[0]) <=64) ? 64 : (fftn1/radix[0]);
+	//int batchsize = Radix2 == 1 ? wg_size : 1;
+	//int num_item_per_wg =((fftn1/radix[0]) <=64) ? 64 : (fftn1/radix[0]);
 	//int wg_num = num_item_per_wg/(fftn1/radix[0]);
-	localsz = num_item_per_wg;
-    globalsz = fftn1;//*fftn2;
+	//localsz = num_item_per_wg;
+    //globalsz = fftn1*fftn2;
 	//if(fftn1<4096)
 	//{
 	//	batchsize = batchsize * fftn2;
 	//	wg_num = batchsize % wg_num ? batchsize / wg_num + 1 : batchsize/ wg_num;
-    //    globalsz = wg_num;
-	//	//globalsz = wg_num * localsz;
+	//	globalsz = wg_num * localsz;
 	//}
 	//else
 	//{
@@ -370,7 +370,8 @@ init(OptionParser& op, bool _do_dp, int fftn)
 		// dumpPTXCode(context, fftProg, "oclFFT");
 	}
 	char kernel_name[20];
-	sprintf(kernel_name,"fft1D_%d",fftn);
+	//sprintf(kernel_name,"fft1D_%d",fftn);
+    sprintf(kernel_name,"fft0");
 	fftKrnl = clCreateKernel(fftProg, kernel_name, &err);
 	CHKERR(err, "Failed to create kernel!");
 	fftKrnl1 = clCreateKernel(fftProg, "fft0", &err);
@@ -391,16 +392,16 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
 	size_t globalsz0;
 	size_t localsz;
 	size_t globalsz;
-	if(fftn <= 2048){
-		getLocalDimension(localsz,globalsz,fftn, 1);
-	}
-	else
-	{
-		getGlobalDimension(localsz0, globalsz0, 1, fftn, 0); 
-		globalsz0 = globalsz0*localsz0;
-		getGlobalDimension(localsz, globalsz, 1, fftn,1); 
-		globalsz = globalsz*localsz;
-	}
+//	if(fftn <= 2048){
+    getLocalDimension(localsz,globalsz,fftn, 1);
+//	}
+//	else
+//	{
+//		getGlobalDimension(localsz0, globalsz0, 1, fftn, 0); 
+//		globalsz0 = globalsz0*localsz0;
+//		getGlobalDimension(localsz, globalsz, 1, fftn,1); 
+//		globalsz = globalsz*localsz;
+//	}
     LSB_Set_Rparam_string("region", "setting_fftKrnl1_kernel_arguments");
     LSB_Res();
 	if(fftn> 2048)
@@ -411,24 +412,26 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
 		clSetKernelArg(fftKrnl, 1, sizeof(cl_mem), workp);
 	}
 	else{
-		clSetKernelArg(fftKrnl, 0, sizeof(cl_mem), workp);
+        clSetKernelArg(fftKrnl, 0, sizeof(cl_mem), workp);
+		clSetKernelArg(fftKrnl, 1, sizeof(cl_mem), temp);
 	}
     LSB_Rec(0);
 	START_KERNEL
-		if(fftn> 2048){
-			//		printf("local size0: %d global size0 %d \n",localsz0,globalsz0);
-			LSB_Set_Rparam_string("region", "fftKrnl1_kernel");
-            err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
-					&globalsz0, &localsz0, 0, 
-					NULL, &ocdTempEvent);
-            clFinish(commands);
-            LSB_Rec(0);
-            CHKERR(err, "Failed to enqueue kernel [fftKrnl1]!");
-            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
-                END_TIMER(ocdTempTimer)
+	//	if(fftn> 2048){
+	//		//		printf("local size0: %d global size0 %d \n",localsz0,globalsz0);
+	//		LSB_Set_Rparam_string("region", "fftKrnl1_kernel");
+    //        err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
+	//				&globalsz0, &localsz0, 0, 
+	//				NULL, &ocdTempEvent);
+    //        clFinish(commands);
+    //        LSB_Rec(0);
+    //        CHKERR(err, "Failed to enqueue kernel [fftKrnl1]!");
+    //        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+    //            END_TIMER(ocdTempTimer)
 
-		}
-	//	printf("local size: %d global size %d \n",localsz,globalsz);
+	//	}
+
+	printf("local size: %d global size %d \n",localsz,globalsz);
     LSB_Set_Rparam_string("region", "fftKrnl_kernel");
     LSB_Res();
 	err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
@@ -577,7 +580,7 @@ allocHostBuffer(void** bufp, unsigned long bytes)
 
 
 	void
-freeHostBuffer(void** buf)
+freeHostBuffer(void* buf)
 {
 #if 0 // pinned memory?
 	cl_int err;
@@ -585,7 +588,7 @@ freeHostBuffer(void** buf)
 	err = clReleaseMemObject(memobj);
 	CHKERR(err, "Failed to release memo object!");
 #else
-	free(*buf);
+	free(buf);
 #endif
 }
 
@@ -601,11 +604,10 @@ allocDeviceBuffer(void** objp, unsigned long bytes)
 
 
 	void
-freeDeviceBuffer(void** buffer)
+freeDeviceBuffer(void* buffer)
 {
-    cl_int err = clReleaseMemObject((cl_mem)*(cl_mem*)*buffer);
+    cl_int err = clReleaseMemObject(*(cl_mem*)buffer);
     CHKERR(err, "Failed to release mem object!");
-    delete *buffer;
 }
 
 
