@@ -49,8 +49,8 @@ fft = {'name':'clfft',
        'default':'--pts 1',
        'tiny':'--2D  --pts1 128 --pts2 16', #32KiB
        'small':'--2D  --pts1 128 --pts2 128', #256KiB
-       'medium':'--2D  --pts1 1024 --pts2 512', #8196KiB
-       'large':'--2D  --pts1 2048 --pts2 1024', #32768KiB
+       'medium':'--2D  --pts1 4096 --pts2 128', #8196KiB
+       'large':'--2D  --pts1 8192 --pts2 1024', #32768KiB
        'full name':'Fast Fourier Transform'}
 gem = {'name':'gem',
        'alias':'gem',
@@ -283,9 +283,9 @@ selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
-#selected_applications = [csr]
-#selected_problem_sizes = ['small','medium','large']
-selected_problem_sizes = ['tiny','small','medium','large']
+selected_applications = [fft]
+selected_problem_sizes = ['medium','large']
+#selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
     for papi_env in selected_papi_envs:

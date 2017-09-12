@@ -164,7 +164,10 @@ void dump2D(OptionParser& op)
         printf("pts1 and pts2 must be powers of 2\n");
         exit(-1);
     }
-
+    //if(FFTN1<128 || FFTN2<128 || FFTN2>8192 || FFTN2>8192 ){
+    //    printf("pts1 and pts2 must be powers of 2\n");
+    //    exit(-1);
+    //}
     unsigned long used_bytes = FFTN1*FFTN2*sizeof(T2);
 
 	bool do_dp = dp<T2>();
@@ -180,8 +183,8 @@ void dump2D(OptionParser& op)
 
 	// init host memory...
 	for (i = 0; i < N; i++) {
-		source[i].x = (rand()/(float)RAND_MAX)*2-1;
-		source[i].y = (rand()/(float)RAND_MAX)*2-1;
+		source[i].x = 1.0;//(rand()/(float)RAND_MAX)*2-1;
+		source[i].y = 0.0;//(rand()/(float)RAND_MAX)*2-1;
 	}
 
     // alloc device memory
@@ -195,19 +198,20 @@ void dump2D(OptionParser& op)
     copyFromDevice(result, work, used_bytes);
 
     finalize();
-
+#define PRINT_RESULT
 #ifdef PRINT_RESULT
     float sum = 0.0f;
-    for (i = 0; i < N; i++) {
+    for (i = 0; i <10; i++) {
         sum += result[i].x + result[i].y;
-        fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
+        if(result[i].x != 1.0f)
+            fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
     }
     printf("sum = %f\n", sum);
 #endif
-	freeDeviceBuffer(work);
-	freeDeviceBuffer(temp);
-	freeHostBuffer(source);
-	freeHostBuffer(result);
+	freeDeviceBuffer(&work);
+	freeDeviceBuffer(&temp);
+	freeHostBuffer((void**)&source);
+	freeHostBuffer((void**)&result);
 }
 
 	template <class T2> 
@@ -256,8 +260,8 @@ void dump1D(OptionParser& op)
 
 	// init host memory...
 	for (i = 0; i < N; i++) {
-		source[i].x = (rand()/(float)RAND_MAX)*2-1;
-		source[i].y = (rand()/(float)RAND_MAX)*2-1;
+		source[i].x = 1.0f; //(rand()/(float)RAND_MAX)*2-1;
+		source[i].y = 0.0f; //(rand()/(float)RAND_MAX)*2-1;
 	}
 
 	// alloc device memory
@@ -272,16 +276,17 @@ void dump1D(OptionParser& op)
 	copyFromDevice(result, work, used_bytes);
 
     finalize();
+#define PRINT_RESULT
 #ifdef PRINT_RESULT
     float sum = 0.0f;
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < 10; i++) {
         sum += result[i].x + result[i].y;
         fprintf(stdout, "data[%d] (%g, %g) \n",i, result[i].x, result[i].y);
     }
     printf("sum = %f\n", sum);
 #endif
-	freeDeviceBuffer(work);
-	freeDeviceBuffer(temp);
-	freeHostBuffer(source);
-	freeHostBuffer(result);
+	freeDeviceBuffer(&work);
+	freeDeviceBuffer(&temp);
+	freeHostBuffer((void**)&source);
+	freeHostBuffer((void**)&result);
 }

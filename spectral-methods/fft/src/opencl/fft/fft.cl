@@ -636,7 +636,7 @@ __kernel void fft1D_128(__global T2 *in)
 
 __kernel void fft0(__global T2 *in, __global T2 *out)
 {
-	__local T smem[2064];
+	__local T smem[2048];
 	int i, j, r, Offset_in, Offset_out,  tid, b, d, k, l;
 	int ii, jj, offset;
 	T2 w;
@@ -768,7 +768,7 @@ __kernel void fft1D_4096(__global T2 *in, __global T2 *out)
 #ifdef FFT_2D
 __kernel void fft1(__global T2 *in, __global T2 *out)
 {
-	__local T smem[2048];
+	__local T smem[8192];
 	int i, j, r, Offset_in, Offset_out, tid, b, d, k, l;
 	int ii, jj, offset;
 	T2 a[16];
@@ -806,7 +806,7 @@ __kernel void fft1(__global T2 *in, __global T2 *out)
 }
 __kernel void fft2(__global T2 *in, __global T2 *out)
 {
-	__local T smem[256];
+	__local T smem[128];
 	int i, j, r, Offset_in, Offset_out, tid, b, d, k, l;
 	int ii, jj, offset;
 	T2 w;

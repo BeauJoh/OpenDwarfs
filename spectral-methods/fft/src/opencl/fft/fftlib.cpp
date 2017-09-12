@@ -88,25 +88,28 @@ void getLocalDimension(size_t &localsz, size_t &globalsz, int fftn1, int fftn2)
 	getLocalRadix(fftn1, radix, &numRadix, 0);
 	if(fftn1/radix[0] > wg_size)
 		getLocalRadix(fftn1, radix, &numRadix, 32);
-	//	for(int i = 0; i < numRadix; i++)
-	//	{      
-	//		assert( radix[i] && !( (radix[i] - 1) & radix[i] ) );
-	//	}
-
-	int batchsize = Radix2 == 1 ? wg_size : min(1, 16);
-	int num_item_per_wg = ((fftn1/radix[0]) <=64) ? 64 : (fftn1/radix[0]);
-	int wg_num = num_item_per_wg/(fftn1/radix[0]);
+	//for(int i = 0; i < numRadix; i++)
+	//{      
+	//	assert( radix[i] && !( (radix[i] - 1) & radix[i] ) );
+	//}
+    //globalsz = fftn1;
+    //localsz = radix[0];
+	int batchsize = Radix2 == 1 ? wg_size : 1;
+	int num_item_per_wg =((fftn1/radix[0]) <=64) ? 64 : (fftn1/radix[0]);
+	//int wg_num = num_item_per_wg/(fftn1/radix[0]);
 	localsz = num_item_per_wg;
-	if(fftn1<4096)
-	{
-		batchsize = batchsize * fftn2;
-		wg_num = batchsize % wg_num ? batchsize / wg_num + 1 : batchsize/ wg_num;
-		globalsz = wg_num * localsz;
-	}
-	else
-	{
-		globalsz = wg_num * num_item_per_wg * fftn2;
-	}
+    globalsz = fftn1;//*fftn2;
+	//if(fftn1<4096)
+	//{
+	//	batchsize = batchsize * fftn2;
+	//	wg_num = batchsize % wg_num ? batchsize / wg_num + 1 : batchsize/ wg_num;
+    //    globalsz = wg_num;
+	//	//globalsz = wg_num * localsz;
+	//}
+	//else
+	//{
+	//	globalsz = wg_num * num_item_per_wg * fftn2;
+	//}
 
 }
 
@@ -258,7 +261,6 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 	    err = clBuildProgram(fftProg, 1, &device_id, "-DOPENCL -I.", NULL, NULL);
     else 
 	    err = clBuildProgram(fftProg, 0, NULL, args.c_str(), NULL, NULL);
-    CL_CHECK_ERROR(err);
 #ifdef ENABLE_DEBUG
 	{
 		char* log = NULL;
@@ -419,10 +421,11 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
             err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
 					&globalsz0, &localsz0, 0, 
 					NULL, &ocdTempEvent);
-			err = clWaitForEvents(1, &ocdTempEvent);
+            clFinish(commands);
             LSB_Rec(0);
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
+            CHKERR(err, "Failed to enqueue kernel [fftKrnl1]!");
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+                END_TIMER(ocdTempTimer)
 
 		}
 	//	printf("local size: %d global size %d \n",localsz,globalsz);
@@ -431,11 +434,11 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
 	err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
 			NULL, &ocdTempEvent);
-	err = clWaitForEvents(1, &ocdTempEvent);
+    clFinish(commands);
     LSB_Rec(0);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to enqueue kernel!");
+    CHKERR(err, "Failed to enqueue kernel!");
+    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 	END_KERNEL
 }
 
@@ -462,7 +465,8 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 		getGlobalDimension(localsz, globalsz, 1, fftn1, 1);
 		globalsz = globalsz * localsz*fftn2;
 	}
-	getGlobalDimension(localsz1, globalsz1, 1, fftn1, 0);
+	//getGlobalDimension(localsz1, globalsz1, fftn1, fftn2, 0);
+    getGlobalDimension(localsz1, globalsz1, 1, fftn1, 0);
 	globalsz1 = globalsz1 * localsz1;
     LSB_Set_Rparam_string("region", "setting_fftKrnl_0_1_2_kernel_arguments");
     LSB_Res();
@@ -491,75 +495,70 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 	}
     LSB_Rec(0);
 	START_KERNEL
-		//Use a dual timer composed of single timers
-		cl_event *firstEvent;
 	if(fftn1>=4096){
         LSB_Set_Rparam_string("region", "fftKrnl0_kernel");
         LSB_Res();
-		//	printf("local size0: %d global size0: %d \n",localsz0,globalsz0);
+		printf("local size0: %d global size0: %d \n",localsz0,globalsz0);
 		err = clEnqueueNDRangeKernel(commands, fftKrnl0, 1, NULL,
 				&globalsz0, &localsz0, 0,
-				NULL, &fftEvent.CLEvent());
-		firstEvent = &fftEvent.CLEvent();
-		err = clWaitForEvents(1, &fftEvent.CLEvent());
+				NULL, &ocdTempEvent);
+        clFinish(commands);
         LSB_Rec(0);
-		START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl0", ocdTempTimer)
+		CHKERR(err, "Failed to enqueue kernel [fftKrnl0]!");
+		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl0", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to enqueue kernel!");
 	}
 
-    LSB_Set_Rparam_string("region", "fftKrnl1_kernel");
+    LSB_Set_Rparam_string("region", "fftKrnl_kernel");
     LSB_Res();
-	//	printf("local size: %d global size: %d \n",localsz,globalsz);
+	printf("local size: %d global size: %d \n",localsz,globalsz);
 	err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
-			NULL, &fftEvent.CLEvent());
-	if (fftn1<4096) firstEvent = &fftEvent.CLEvent();//inserted for dual timer support
-	err = clWaitForEvents(1, &fftEvent.CLEvent());
+			NULL, &ocdTempEvent);
+    clFinish(commands);
     LSB_Rec(0);
-	START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+	CHKERR(err, "Failed to enqueue kernel [fftKrnl]!");
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHKERR(err, "Failed to wait for events!");
 
-	//	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
+	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
 	LSB_Set_Rparam_string("region", "fftKrnl1_kernel");
     LSB_Res();
+    
     err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
 			&globalsz1, &localsz1, 0, 
-			NULL, &fftEvent.CLEvent());
-	err = clWaitForEvents(1, &fftEvent.CLEvent());
+			NULL, &ocdTempEvent);
+    clFinish(commands);
     LSB_Rec(0);
-	START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+	CHKERR(err, "Failed to enqueue kernel [fftKrnl1]!");
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHKERR(err, "Failed to wait for events!");
 
 	if(fftn2>128){
-		//printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
+		printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
         LSB_Set_Rparam_string("region", "fftKrnl2_kernel");
         LSB_Res();
 		err = clEnqueueNDRangeKernel(commands, fftKrnl2, 1, NULL, 
 				&globalsz2, &localsz2, 0, 
-				NULL, &fftEvent.CLEvent());
-		err = clWaitForEvents(1, &fftEvent.CLEvent());
+				NULL, &ocdTempEvent);
+        clFinish(commands);
         LSB_Rec(0);
-		START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl2", ocdTempTimer)
+        CHKERR(err, "Failed to enqueue kernel [fftKrnl2]!");
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl2", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to wait for events!");
 	}
-	//set a dual timer to check the entire range
-	START_DUAL_TIMER(*firstEvent, fftEvent.CLEvent(), "FFT Kernels (Span)", ocdTempDualTimer)
-	END_DUAL_TIMER(ocdTempDualTimer)
 	END_KERNEL
 }
 
-
+#if 0
 #include <map>
 static map<void*, cl_mem> memobjmap;
+#endif
 
 	void
 allocHostBuffer(void** bufp, unsigned long bytes)
 {
-#if 1 // pinned memory?
+#if 0 // pinned memory?
 	cl_int err;
 	cl_mem memobj = clCreateBuffer(context,CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR,
 			bytes, NULL, &err);
@@ -572,21 +571,21 @@ allocHostBuffer(void** bufp, unsigned long bytes)
 	memobjmap[*bufp] = memobj;
 	CHKERR(err, "Failed to enqueue map buffer!");
 #else
-	*bufp = malloc(bytes);
+    *bufp = malloc(bytes);
 #endif
 }
 
 
 	void
-freeHostBuffer(void* buf)
+freeHostBuffer(void** buf)
 {
-#if 1 // pinned memory?
+#if 0 // pinned memory?
 	cl_int err;
 	cl_mem memobj = memobjmap[buf];
 	err = clReleaseMemObject(memobj);
 	CHKERR(err, "Failed to release memo object!");
 #else
-	free(buf);
+	free(*buf);
 #endif
 }
 
@@ -595,18 +594,18 @@ freeHostBuffer(void* buf)
 allocDeviceBuffer(void** objp, unsigned long bytes)
 {
 	cl_int err;
-
 	*(cl_mem**)objp = new cl_mem;
-	**(cl_mem**)objp = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, 
-			NULL, &err);
-	CHKERR(err, "Failed to create buffer!");
+	**(cl_mem**)objp = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, NULL, &err);
+    CHKERR(err, "Failed to create buffer!");
 }
 
 
 	void
-freeDeviceBuffer(void* buffer)
+freeDeviceBuffer(void** buffer)
 {
-	clReleaseMemObject(*(cl_mem*)buffer);
+    cl_int err = clReleaseMemObject((cl_mem)*(cl_mem*)*buffer);
+    CHKERR(err, "Failed to release mem object!");
+    delete *buffer;
 }
 
 
