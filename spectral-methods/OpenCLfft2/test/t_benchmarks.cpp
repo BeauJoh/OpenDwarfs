@@ -26,7 +26,7 @@
 #endif
 #include "CLFFT.h"
 #include "TestFunctions.h"
-
+#include "../../../include/common_args.h"
 #define BENCHMARK_IO 0
 
 #if USE_MKL
@@ -260,7 +260,7 @@ bool benchmarkCLFFT(size_t maxLog2N,clfft::RealType realType,double maxBenchmark
 {
   std::string msg;
   clfft::Context * clfft = 0;
-  cl_context context = 0;
+  //cl_context context = 0;
   bool ok = true;
   size_t realSize;
   size_t maxBufferSize;
@@ -268,7 +268,8 @@ bool benchmarkCLFFT(size_t maxLog2N,clfft::RealType realType,double maxBenchmark
   void * x = 0;
   void * y = 0;
 
-  context = createGPUContext();
+  ocd_initCL();
+  //context = createGPUContext();
   if (context == 0)
   {
     fprintf(stderr,"Could not create OpenCL context\n");
@@ -280,7 +281,7 @@ bool benchmarkCLFFT(size_t maxLog2N,clfft::RealType realType,double maxBenchmark
     fprintf(stderr,"Creation failed:\n%s\n",msg.c_str());
     ok = false; goto END;
   }
-  clReleaseContext(context); // clfft still references the context
+  //clReleaseContext(context); // clfft still references the context
 
   realSize = (realType == clfft::FLOAT_REAL_TYPE)?sizeof(float):sizeof(double);
   maxN = (size_t)1 << maxLog2N;
@@ -328,10 +329,11 @@ bool runBenchmarks(double maxBenchmarkTime)
   return ok;
 }
 
-int main()
+int main(int argc, char**argv)
 {
   bool ok = true;
   srand(0);
+  ocd_init(&argc, &argv, NULL);
 
   ok &= runBenchmarks(0.5);
 

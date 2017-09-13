@@ -6,6 +6,7 @@
 //
 #include "CLFFT.h"
 #include "../../../include/common_args.h"
+#include "../../../include/rdtsc.h"
 
 // Return log2(n) if N is a power of 2, and -1 otherwise.
 inline int log2(size_t n)
@@ -30,10 +31,8 @@ clfft::Context * clfft::Context::create(cl_context context,RealType realType,std
 
   bool ok = true;
   cl_int status;
-  const int MAX_DEVICES = 16;
-  cl_device_id device[MAX_DEVICES];
   size_t sz;
-  int nDevices;
+  int nDevices = 1;
   clfft::Context * result = 0;
   const int MAX_OPTIONS = 1024;
   char options[MAX_OPTIONS];
@@ -48,40 +47,14 @@ clfft::Context * clfft::Context::create(cl_context context,RealType realType,std
 
   if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
 
-  // Get context devices
-  status = clGetContextInfo(context,CL_CONTEXT_DEVICES,MAX_DEVICES*sizeof(device[0]),device,&sz);
-  if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
-  nDevices = (int) ( sz / sizeof(device[0]) );
-
   // Create and build program
+   
   if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
   snprintf(options,MAX_OPTIONS," -cl-fast-relaxed-math -D CONFIG_USE_DOUBLE=%d",
     (realType == DOUBLE_REAL_TYPE)?1:0
   );
-  result->mProgram = ocdBuildProgramFromFile(context,device[0],"FFTKernels",options);
-  // Collect build errors in msg string
-/*
-  if (status == CL_BUILD_PROGRAM_FAILURE)
-  {
-    for (int d=0;d<nDevices;d++)
-    {
-      std::string e;
-      cl_int s2;
-      s2 = clGetProgramBuildInfo(result->mProgram,device[d],CL_PROGRAM_BUILD_LOG,0,0,&sz);
-      if (!CLFFT_CHECK_STATUS(s2) || sz == 0) continue;
-      e.resize(sz+1,' ');
-      s2 = clGetProgramBuildInfo(result->mProgram,device[d],CL_PROGRAM_BUILD_LOG,sz,&(e[0]),&sz);
-      if (!CLFFT_CHECK_STATUS(s2) || sz == 0) continue;
-      e.resize(sz);
-      while (sz > 0 && !isascii(e[sz-1])) sz--; // Eliminate garbage at the end of the string
-      char aux[200];
-      snprintf(aux,200,"Build error for device %d:\n",(int)d);
-      errorMsg.append(aux);
-      errorMsg.append(e);
-    }
-  }
-  if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
-*/
+  result->mProgram = ocdBuildProgramFromFile(context,device_id,"FFTKernels",options);
+  
   // Create kernels
   result->mKernel.resize(NB_KERNELS,0);
   result->mKernelIndex.resize(NB_KERNELS,0);
@@ -109,8 +82,8 @@ clfft::Context * clfft::Context::create(cl_context context,RealType realType,std
   for (int d=0;d<nDevices;d++)
   {
     cl_command_queue_properties props = 0;
-    result->mDevice[d] = device[d];
-    result->mQueue[d] = clCreateCommandQueue(context,device[d],props,&status);
+    result->mDevice[d] = device_id;//device[d];
+    result->mQueue[d] = commands;//clCreateCommandQueue(context,device[d],props,&status);
     if (!CLFFT_CHECK_STATUS(status)) { errorMsg.append("Command queue creation failed"); ok = false; goto END; }
   }
 
