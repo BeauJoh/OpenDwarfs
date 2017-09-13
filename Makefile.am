@@ -78,6 +78,11 @@ include spectral-methods/fft/Makefile.mk
 testruns += fft
 endif
 
+if build_openclfft
+include spectral-methods/OpenCLfft2/Makefile.mk
+testruns += openclfft
+endif
+
 if build_csr
 include sparse-linear-algebra/SPMV/Makefile.mk
 testruns += csr

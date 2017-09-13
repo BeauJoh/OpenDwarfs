@@ -92,19 +92,19 @@ void getLocalDimension(size_t &localsz, size_t &globalsz, int fftn1, int fftn2)
 	{      
 		assert( radix[i] && !( (radix[i] - 1) & radix[i] ) );
 	}
-    globalsz = fftn1;
-    localsz = globalsz;
-    //localsz = radix[0];
-	//int batchsize = Radix2 == 1 ? wg_size : 1;
-	//int num_item_per_wg =((fftn1/radix[0]) <=64) ? 64 : (fftn1/radix[0]);
-	//int wg_num = num_item_per_wg/(fftn1/radix[0]);
-	//localsz = num_item_per_wg;
-    //globalsz = fftn1*fftn2;
+    //globalsz = fftn1;
+    //localsz = globalsz;
+    localsz = radix[0];
+	int batchsize = Radix2 == 1 ? wg_size : 1;
+	int num_item_per_wg =((fftn1/radix[0]) <=64) ? 64 : (fftn1/radix[0]);
+	int wg_num = num_item_per_wg/(fftn1/radix[0]);
+	localsz = num_item_per_wg;
+    globalsz = fftn1*fftn2;
 	//if(fftn1<4096)
 	//{
-	//	batchsize = batchsize * fftn2;
-	//	wg_num = batchsize % wg_num ? batchsize / wg_num + 1 : batchsize/ wg_num;
-	//	globalsz = wg_num * localsz;
+		batchsize = batchsize * fftn2;
+		wg_num = batchsize % wg_num ? batchsize / wg_num + 1 : batchsize/ wg_num;
+		globalsz = wg_num * localsz;
 	//}
 	//else
 	//{
@@ -371,8 +371,11 @@ init(OptionParser& op, bool _do_dp, int fftn)
 	}
 	char kernel_name[20];
 	//sprintf(kernel_name,"fft1D_%d",fftn);
-    sprintf(kernel_name,"fft0");
-	fftKrnl = clCreateKernel(fftProg, kernel_name, &err);
+	//fftKrnl = clCreateKernel(fftProg, kernel_name, &err);
+    //if (err != CL_SUCCESS){
+      sprintf(kernel_name,"fft0");
+      fftKrnl = clCreateKernel(fftProg, kernel_name, &err);
+    //}
 	CHKERR(err, "Failed to create kernel!");
 	fftKrnl1 = clCreateKernel(fftProg, "fft0", &err);
 	CHKERR(err, "Failed to create kernel!");
@@ -387,21 +390,23 @@ void finalize()
 	void 
 forward(void* workp, void *temp, int n_ffts, int fftn)
 {
-	cl_int err;
-	size_t localsz0;
-	size_t globalsz0;
-	size_t localsz;
-	size_t globalsz;
-//	if(fftn <= 2048){
-    getLocalDimension(localsz,globalsz,fftn, 1);
-//	}
-//	else
-//	{
-//		getGlobalDimension(localsz0, globalsz0, 1, fftn, 0); 
-//		globalsz0 = globalsz0*localsz0;
-//		getGlobalDimension(localsz, globalsz, 1, fftn,1); 
-//		globalsz = globalsz*localsz;
-//	}
+    cl_int err;
+    size_t localsz0;
+    size_t globalsz0;
+    size_t localsz;
+    size_t globalsz;
+    if(fftn <= 2048){
+        //getLocalDimension(localsz,globalsz,fftn, 1);
+        localsz = 1; //fftn/16;
+        globalsz = fftn/16;
+    }
+    else
+    {
+        getGlobalDimension(localsz0, globalsz0, 1, fftn, 0); 
+        globalsz0 = globalsz0*localsz0;
+        getGlobalDimension(localsz, globalsz, 1, fftn,1); 
+        globalsz = globalsz*localsz;
+    }
     LSB_Set_Rparam_string("region", "setting_fftKrnl1_kernel_arguments");
     LSB_Res();
 	if(fftn> 2048)

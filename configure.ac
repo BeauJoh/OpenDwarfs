@@ -183,12 +183,13 @@ fi
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-            AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,nqueens,bwa_hmm)]),
-            [app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,nqueens,bwa_hmm])
+            AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,openclfft,swat,samplecl,crc,cfd,bfs,csr,tdm,nqueens,bwa_hmm)]),
+            [app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,openclfft,swat,samplecl,crc,cfd,bfs,csr,tdm,nqueens,bwa_hmm])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 build_gem=false
 build_fft=false
+build_openclfft=false
 build_swat=false
 #build_matmult=false
 #build_mattran=false
@@ -280,6 +281,10 @@ for app in ${app_names}; do
         build_fft=true
         selected_apps="$selected_apps fft"
         ;;
+      openclfft)
+        build_openclfft=true
+        selected_apps="$selected_apps openclfft"
+        ;;
       swat)
         build_swat=true
         selected_apps="$selected_apps swat"
@@ -325,6 +330,7 @@ AM_CONDITIONAL([build_lud], [$build_lud])
 AM_CONDITIONAL([build_kmeans], [$build_kmeans])
 AM_CONDITIONAL([build_samplecl], [$build_samplecl])
 AM_CONDITIONAL([build_fft], [$build_fft])
+AM_CONDITIONAL([build_openclfft], [$build_openclfft])
 AM_CONDITIONAL([build_swat], [$build_swat])
 AM_CONDITIONAL([build_csr], [$build_csr])
 AM_CONDITIONAL([build_crc], [$build_crc])
