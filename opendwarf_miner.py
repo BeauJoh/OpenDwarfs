@@ -44,13 +44,13 @@ csr = {'name':'csr',
        'medium':'-i ../test/sparse-linear-algebra/SPMV/medium',#14336, 8195.5KiB
        'large':'-i ../test/sparse-linear-algebra/SPMV/large',#16384, 10677.8KiB
        'full name':'Compressed Sparse Row'}
-fft = {'name':'clfft',
+fft = {'name':'openclfft',
        'alias':'clfft',
-       'default':'--pts 1',
-       'tiny':'--2D  --pts1 128 --pts2 16', #32KiB
-       'small':'--2D  --pts1 128 --pts2 128', #256KiB
-       'medium':'--2D  --pts1 4096 --pts2 128', #8196KiB
-       'large':'--2D  --pts1 8192 --pts2 1024', #32768KiB
+       'default':'128',
+       'tiny':'2048', #32KiB
+       'small':'16384 ',#256KiB
+       'medium':'524288', #8192KiB
+       'large':'2097152', #32768KiB
        'full name':'Fast Fourier Transform'}
 gem = {'name':'gem',
        'alias':'gem',
@@ -119,9 +119,9 @@ backtrack_branch_and_bound = [nqueens]
 graphical_models = [hmm]
 finite_state_machines = [tdm]
 
-dwarfs = [dense_linear_algebra,
-        sparse_linear_algebra]#,
-        #spectral_methods,
+dwarfs = [#dense_linear_algebra,
+        #sparse_linear_algebra],
+        spectral_methods]#,
         #n_body_methods,
         #structured_grid_methods]
 

@@ -1,5 +1,9 @@
+//
 // Test functions
-// EB Mar 2011
+// Copyright 2011, Eric Bainville
+// Modified by Beau Johnston Sep 2017.
+// All rights reserved.
+//
 
 #ifndef TestFunctions_h
 #define TestFunctions_h

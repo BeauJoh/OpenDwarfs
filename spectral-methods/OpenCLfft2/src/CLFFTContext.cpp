@@ -1,8 +1,8 @@
 //
 // OpenCL FFT benchmarks
 // Copyright 2011, Eric Bainville
-// Modified by Beau Johnston. Copyright 2017 by The Australian National
-// University. All rights reserved.
+// Modified by Beau Johnston Sep 2017.
+// All rights reserved.
 //
 #include "CLFFT.h"
 #include "../../../include/common_args.h"

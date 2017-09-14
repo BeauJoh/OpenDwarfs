@@ -1,8 +1,8 @@
 //
 // OpenCL FFT benchmarks
 // Copyright Eric Bainville Mar 2011.
-// Modified by Beau Johnston. Copyright 2017 by The Australian National
-// University. All rights reserved.
+// Modified by Beau Johnston Sep 2017.
+// All rights reserved.
 //
 
 #ifdef WIN32
@@ -27,6 +27,7 @@
 #include "CLFFT.h"
 #include "TestFunctions.h"
 #include "../../../include/common_args.h"
+#include "../../../include/lsb.h"
 #define BENCHMARK_IO 0
 
 #if USE_MKL
@@ -213,24 +214,36 @@ int runCLFFT(clfft::Context * clfft,size_t n,void * x,void * y)
     int deviceID = 0;
     clfft::Event e;
 
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
     bIn = clCreateBuffer(clfft->getOpenCLContext(),CL_MEM_READ_WRITE,bufferSize,0,&status);
     if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
     bOut = clCreateBuffer(clfft->getOpenCLContext(),CL_MEM_READ_WRITE,bufferSize,0,&status);
     if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region","device_side_h2d_copy");
+    LSB_Res();
     e = clfft->enqueueWrite(deviceID,bIn,true,0,bufferSize,x,clfft::EventVector()); // blocking
     if (!CLFFT_CHECK_EVENT(e)) { ok = false; goto END; }
+    LSB_Rec(0);
 
+    LSB_Set_Rparam_string("region", "fft_kernel");
+    LSB_Res();
     e = simpleForward1D(clfft,deviceID,n,bIn,bOut,e);
     if (!CLFFT_CHECK_EVENT(e)) { ok = false; goto END; }
     status = clfft->enqueueBarrier(deviceID);
     if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
-
     status = clfft->finish(deviceID);
+    LSB_Rec(0);
+
     if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
 
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
     e = clfft->enqueueRead(deviceID,bOut,true,0,bufferSize,y,e); // blocking
     if (!CLFFT_CHECK_EVENT(e)) { ok = false; goto END; }
+    LSB_Rec(0);
 
 END:
 
@@ -390,18 +403,27 @@ bool isPowerOfTwo(unsigned int x)
 
 int benchmark(int N){
     ocd_initCL();
+    LSB_Init("openclfft", 0);
+    LSB_Set_Rparam_int("signal_length",N);
     std::string msg;
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
     clfft::Context* clfft = clfft::Context::create(context,clfft::FLOAT_REAL_TYPE,msg);
     //generate the data of length N
     void* x = malloc(sizeof(float)*N*2);//    new float[N*2];
     void* y = malloc(sizeof(float)*N*2);//    new float[N*2];
-    ones<float>((size_t)N,(float*)x);
-    //sine<float>((size_t)N,(float*)x);
+    //ones<float>((size_t)N,(float*)x);
+    sine<float>((size_t)N,(float*)x);
     zeros<float>((size_t)N,(float*)y);
+    printf("Working kernel memory: %fKiB\n",(sizeof(float)*N*2*2)/1024.0);
+    LSB_Rec(0);
+
     int success = runCLFFT(clfft,N,(void*)x,(void*)y);
-    dumpRealArray<float>((size_t)N,(float*)y);
+    //dumpRealArray<float>((size_t)N,(float*)y);
     free(x);//delete x;
     free(y);//delete y;/
+    LSB_Finalize();
+
     return(success);
 }
 
