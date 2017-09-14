@@ -24,6 +24,35 @@ template <typename REAL> void rand(size_t n,REAL * x)
   for (size_t i=0;i<n;i++) x[i] = (REAL)(2.0*rnd()-1.0);
 }
 
+// Initialize X[N] with ones as the real component, and zeros in the imaginary part
+template <typename REAL> void ones(size_t n,REAL * x)
+{
+  for (size_t i=0;i<n;i++){
+      x[i*2] = (REAL)(1.0);
+      x[i*2+1] = (REAL)(0.0);
+  }
+}
+
+// Initialize X[N] with zeros as the real component, and zeros in the imaginary part
+template <typename REAL> void zeros(size_t n,REAL * x)
+{
+  for (size_t i=0;i<n;i++){
+      x[i*2] = (REAL)(0.0);
+      x[i*2+1] = (REAL)(0.0);
+  }
+}
+
+// Initialize X[N] with a sin wave as the real component and zeros in the imaginary part
+template <typename REAL> void sine(size_t n,REAL * x)
+{
+    int i = 0;
+    for (REAL z = (REAL)(-10.0); z < (REAL)(10.0); z+= (REAL)(20.0/n)) {
+        x[i*2] = (REAL)sin(z);
+        x[i*2+1] = (REAL)(0.0);
+        i++;
+    }
+}
+
 // Return RMSE between X[N] and Y[N]
 template <typename REAL> double rmse(size_t n,const REAL * x,const REAL * y)
 {
@@ -34,6 +63,14 @@ template <typename REAL> double rmse(size_t n,const REAL * x,const REAL * y)
       s += d*d;
     }
   return sqrt(s/(double)n);
+}
+
+template <typename REAL> void dumpRealArray(size_t n,const REAL * x)
+{
+  for (size_t i=0;i<n;i++)
+    {
+      printf("  %2d: %10f\n",(int)i,(double)x[2*i]);
+    }
 }
 
 // Dump X[2*N] as complex array

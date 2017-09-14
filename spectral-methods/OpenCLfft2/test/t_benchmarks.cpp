@@ -177,7 +177,7 @@ clfft::Event simpleForward1D(clfft::Context * clfft,int device,size_t n,cl_mem i
   int current = 0;
   size_t p = (size_t)1;
   clfft::Event e;
-  size_t bufferSize = n * clfft->getRealTypeSize();
+  size_t bufferSize = n * 2 * clfft->getRealTypeSize();
   b[current] = in;
   b[1-current] = out;
 
@@ -196,9 +196,49 @@ clfft::Event simpleForward1D(clfft::Context * clfft,int device,size_t n,cl_mem i
   }
   if (current != 1)
   {
-    e = clfft->enqueueCopy(device,b[current],b[1-current],0,0,bufferSize,deps);
+      e = clfft->enqueueCopy(device,b[current],b[1-current],0,0,bufferSize,deps);
   }
   return e;
+}
+
+int runCLFFT(clfft::Context * clfft,size_t n,void * x,void * y)
+{
+    int realType = clfft->getRealType();
+    size_t realSize = (realType == clfft::FLOAT_REAL_TYPE)?sizeof(float):sizeof(double);
+    size_t bufferSize = realSize * n * 2;
+    cl_int status;
+    cl_mem bIn = 0;
+    cl_mem bOut = 0;
+    bool ok = true;
+    int deviceID = 0;
+    clfft::Event e;
+
+    bIn = clCreateBuffer(clfft->getOpenCLContext(),CL_MEM_READ_WRITE,bufferSize,0,&status);
+    if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
+    bOut = clCreateBuffer(clfft->getOpenCLContext(),CL_MEM_READ_WRITE,bufferSize,0,&status);
+    if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
+
+    e = clfft->enqueueWrite(deviceID,bIn,true,0,bufferSize,x,clfft::EventVector()); // blocking
+    if (!CLFFT_CHECK_EVENT(e)) { ok = false; goto END; }
+
+    e = simpleForward1D(clfft,deviceID,n,bIn,bOut,e);
+    if (!CLFFT_CHECK_EVENT(e)) { ok = false; goto END; }
+    status = clfft->enqueueBarrier(deviceID);
+    if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
+
+    status = clfft->finish(deviceID);
+    if (!CLFFT_CHECK_STATUS(status)) { ok = false; goto END; }
+
+    e = clfft->enqueueRead(deviceID,bOut,true,0,bufferSize,y,e); // blocking
+    if (!CLFFT_CHECK_EVENT(e)) { ok = false; goto END; }
+
+END:
+
+    if (bIn != 0) clReleaseMemObject(bIn);
+    if (bOut != 0) clReleaseMemObject(bOut);
+
+    if (!ok) return -1; // Error
+    else return 0;
 }
 
 double runCLFFT(clfft::Context * clfft,size_t n,void * x,void * y, double maxBenchmarkTime)
@@ -293,6 +333,7 @@ bool benchmarkCLFFT(size_t maxLog2N,clfft::RealType realType,double maxBenchmark
 
   for (size_t log2n=8;log2n <= maxLog2N;log2n++)
   {
+    rand<float>((size_t)2*maxN,(float *)x);
     size_t n = (size_t)1 << log2n;
     double t = runCLFFT(clfft,n,x,y,maxBenchmarkTime);
     double flop = 5 * (double)log2n * (double)n;
@@ -329,17 +370,73 @@ bool runBenchmarks(double maxBenchmarkTime)
   return ok;
 }
 
+void printHelp(){
+    printf("openclfft performs a one dimensional fast fourier transform over a given signal length N.\n");
+    printf("Arguments are supported in the following form:\n");
+    printf("\t./openclfft -p [platform id] -d [device id] -t [type id] -- [N]\n");
+    printf("\twhere: [platform id] is the integer id for the OpenCL platform to use,\n");
+    printf("\t       [device id] is the integer id for the OpenCL device,\n");
+    printf("\t       [type id] is the integer id for the OpenCL platform to use, by default this determines type automatically according to the selected device characteristics,\n");
+    printf("\t       [N] is an integer (and must be a power of 2) an indicates the length of signal on which to perform the FFT.\n");
+    printf("Additionally -d or --default, runs the default (original Gflops benchmark)\n");
+    printf("sample usage:\n");
+    printf("\t./openclfft -p 0 -d 0 -t 0 -- 128\n");
+}
+
+bool isPowerOfTwo(unsigned int x)
+{
+    return (x != 0) && ((x & (x - 1)) == 0);
+}
+
+int benchmark(int N){
+    ocd_initCL();
+    std::string msg;
+    clfft::Context* clfft = clfft::Context::create(context,clfft::FLOAT_REAL_TYPE,msg);
+    //generate the data of length N
+    void* x = malloc(sizeof(float)*N*2);//    new float[N*2];
+    void* y = malloc(sizeof(float)*N*2);//    new float[N*2];
+    ones<float>((size_t)N,(float*)x);
+    //sine<float>((size_t)N,(float*)x);
+    zeros<float>((size_t)N,(float*)y);
+    int success = runCLFFT(clfft,N,(void*)x,(void*)y);
+    dumpRealArray<float>((size_t)N,(float*)y);
+    free(x);//delete x;
+    free(y);//delete y;/
+    return(success);
+}
+
 int main(int argc, char**argv)
 {
-  bool ok = true;
-  srand(0);
-  ocd_init(&argc, &argv, NULL);
-
-  ok &= runBenchmarks(0.5);
-
-  printf("%s\n",(ok)?"OK":"FAILED!");
+    bool ok = true;
+    srand(0);
+    ocd_init(&argc, &argv, NULL);
+    if (argc == 2){
+        if (strcmp(argv[1],"-h") == 0 || strcmp(argv[1],"--help") == 0){
+            printHelp();
+            return(EXIT_SUCCESS);
+        }
+        if (strcmp(argv[1],"-d") == 0 || strcmp(argv[1],"--default") == 0){
+            ok &= runBenchmarks(0.5);
+        }
+        int signal_length = atoi(argv[1]);
+        if(signal_length == 0){
+            printf("Please enter a valid signal length of N elements\n");
+            printHelp();
+            return(EXIT_FAILURE);
+        }
+        if(!isPowerOfTwo(signal_length)){
+            printf("N must be a power of 2, but instead is %i\n",signal_length);
+            printHelp();
+            return(EXIT_FAILURE);
+        }
+        return(benchmark(signal_length));
+    }else{
+        printHelp();
+        return(EXIT_SUCCESS);
+    }
+    printf("%s\n",(ok)?"OK":"FAILED!");
 #ifdef WIN32
-  printf("Press a key.\n");
-  getchar();
+    printf("Press a key.\n");
+    getchar();
 #endif
 }
