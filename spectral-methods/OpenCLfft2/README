@@ -1,0 +1,25 @@
+Fast Fourier Transform
+======================
+
+Status: Stable
+
+Performs the Fast Fourier Transform (FFT) function on a sine wave data set of variable length N.
+
+Note: This application was orgininally developed by Eric Bainville as part of
+his web blogs 
+      (http://www.bealto.com/gpu-fft_benchmarks-1.html).
+
+Running
+-------
+
+openclfft performs a one dimensional fast fourier transform over a given signal length N.
+Usage:
+        ./openclfft -p [platform id] -d [device id] -t [type id] -- [N]
+        where: [platform id] is the integer id for the OpenCL platform to use,
+               [device id] is the integer id for the OpenCL device,
+               [type id] is the integer id for the OpenCL platform to use, by default this determines type automatically according to the selected device characteristics,
+               [N] is an integer (and must be a power of 2) an indicates the length of signal on which to perform the FFT.
+Additionally -d or --default, runs the default (original Gflops benchmark)
+Example:
+        ./openclfft -p 0 -d 0 -t 0 -- 128
+
