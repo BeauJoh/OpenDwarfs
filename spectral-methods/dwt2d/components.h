@@ -15,8 +15,6 @@ namespace component{
 #include <getopt.h>
 static struct option longopts[] = {
     {"level",       1, 0, 'l'}, //level of dwt
-    {"forward",     0, 0, 'f'}, //forward transform
-//    {"reverse",     0, 0, 'r'}, //forward transform
     {"97",          0, 0, '9'}, //9/7 transform
     {"53",          0, 0, '5'}, //5/3transform
     {"write-visual",0, 0, 'w'}, //write output (subbands) in visual (tiled) order instead of linear

@@ -147,7 +147,7 @@ void bwToComponent(cl_mem d_c, unsigned char * h_src, int width, int height)
     cl_d_src = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, pixels, h_src, NULL);
     CHKERR(errNum, "Failed to create buffer [cl_d_src]!");
 
-    size_t globalWorkSize[1] = { alignedSize/9};
+    size_t globalWorkSize[1] = { alignedSize};
     size_t localWorkSize[1] = { THREADS };
     assert(alignedSize%(THREADS) == 0);
 
@@ -645,7 +645,7 @@ bool loadPPM(char* filename,int& width, int& height, int& channels, unsigned cha
     unsigned int bytes_to_read = sizeof(unsigned char)*width*height*channels;
     *data = (unsigned char*)malloc(bytes_to_read);
     if (fread(*data, sizeof(unsigned char), bytes_to_read, fp) != bytes_to_read){
-        std::cout<<"Error: couldn't load image"<<std::endl;
+        //std::cout<<"Error: couldn't load image"<<std::endl;
         return false;
     }
     fclose(fp);
@@ -679,8 +679,9 @@ bool loadPGM(char* filename,int& width, int& height, int& channels, unsigned cha
     }
     unsigned int bytes_to_read = sizeof(unsigned char)*width*height*channels;
     *data = (unsigned char*)malloc(bytes_to_read);
-    if (fread(*data, sizeof(unsigned char), bytes_to_read, fp) != bytes_to_read){
-        std::cout<<"Error: couldn't load image"<<std::endl;
+    int read_bytes = fread(*data, sizeof(unsigned char), bytes_to_read, fp);
+    if (read_bytes != bytes_to_read){
+        //std::cout<<"Error: couldn't load image"<<std::endl;
         return false;
     }
     fclose(fp);
@@ -859,6 +860,7 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    //just a test to see if we can read and write the data.
     //if(!savePGM("original_red_component_as.pgm",d->pixWidth,d->pixHeight,(unsigned char*)d->srcImg,0,3)){
     //    exit(EXIT_FAILURE);
     //}
