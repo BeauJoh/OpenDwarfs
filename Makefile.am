@@ -83,6 +83,11 @@ include spectral-methods/OpenCLfft2/Makefile.mk
 testruns += openclfft
 endif
 
+if build_dwt2d
+include spectral-methods/dwt2d/Makefile.mk
+testruns += dwt2d
+endif
+
 if build_csr
 include sparse-linear-algebra/SPMV/Makefile.mk
 testruns += csr
