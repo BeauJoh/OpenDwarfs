@@ -54,12 +54,12 @@ fft = {'name':'openclfft',
        'full name':'Fast Fourier Transform'}
 dwt = {'name':'dwt2d',
        'alias':'dwt2d',
-       'default':'-l 3 ../test/spectral-methods/dwt2d/airplane.ppm -w airplane', #writes out the dwt2d wavelet coefficients in a visual form to 
-       'tiny':'-l 1 ../test/spectral-methods/dwt2d/tiny-baboon.ppm tiny-baboon-coefficients', #32KiB
-       'small':'16384 ',#256KiB
-       'medium':'524288', #8192KiB
-       'large':'2097152', #32768KiB
-       'full name':'Fast Fourier Transform'}
+       'default':'-l 3 ../test/spectral-methods/dwt2d/airplane.ppm -w airplane', #writes out the dwt2d wavelet coefficients in a visual form to pgm format
+       'tiny':'-l 3 ../test/spectral-methods/dwt2d/72x54-gum.ppm tiny-gum-coefficients', #32KiB
+       'small':'-l 3 ../test/spectral-methods/dwt2d/200x150-gum.ppm small-gum-coefficients',#256KiB
+       'medium':'-l 3 ../test/spectral-methods/dwt2d/1152x864-gum.ppm medium-gum-coefficients', #8192KiB
+       'large':'-l 3 ../test/spectral-methods/dwt2d/3648x2736-gum.ppm large-gum-coefficients', #32768KiB
+       'full name':'2D Discrete Wavelet Transform'}
 gem = {'name':'gem',
        'alias':'gem',
        'default':"../test/n-body-methods/gem/nucleosome 80 1 0",
@@ -116,7 +116,7 @@ tdm = {'name':'tdm',
 #Dwarfs as clusters of Benchmarks:
 dense_linear_algebra = [kmeans,lud]
 sparse_linear_algebra = [csr]
-spectral_methods = [fft]
+spectral_methods = [fft,dwt]
 n_body_methods = [gem]
 structured_grid_methods = [srad]
 unstructured_grid_methods = [cfd]
@@ -291,9 +291,8 @@ selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
-selected_applications = [fft]
-selected_problem_sizes = ['medium','large']
-#selected_problem_sizes = ['tiny','small','medium','large']
+selected_applications = [fft,dwt]
+selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
     for papi_env in selected_papi_envs:
