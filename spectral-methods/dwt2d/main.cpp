@@ -100,27 +100,36 @@ void usage() {
 //in file components.cu
 void rgbToComponents(cl_mem d_r, cl_mem d_g, cl_mem d_b, unsigned char * h_src, int width, int height)
 {
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
     int pixels      = width * height;
     int alignedSize =  DIVANDRND(width*height, THREADS) * THREADS; //aligned to thread block size -- THREADS
-
+    LSB_Set_Rparam_string("region", "c_CopySrcToComponents_kernel");
     cl_mem cl_d_src;
     cl_d_src = clCreateBuffer(context, CL_MEM_READ_ONLY, pixels*3*sizeof(unsigned char), NULL, &errNum);
     CHKERR(errNum, "Failed to create buffer [cl_d_src]!");
+    LSB_Rec(0);
+
+    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+    LSB_Res();
     errNum = clEnqueueWriteBuffer(commandQueue, cl_d_src, CL_TRUE, 0, pixels*3*sizeof(unsigned char), (void*)h_src, 0, NULL, NULL);
     clFinish(commandQueue);
     CHKERR(errNum, "Failed to write to buffer [cl_d_src]!");
+    LSB_Rec(0);
 
     size_t globalWorkSize[1] = {alignedSize};
     size_t localWorkSize[1] = { THREADS };
 
+    LSB_Set_Rparam_string("region", "setting_c_CopySrcToComponents_kernel_arguments");
+    LSB_Res();
     errNum  = clSetKernelArg(c_CopySrcToComponents, 0, sizeof(cl_mem), &d_r);
     errNum |= clSetKernelArg(c_CopySrcToComponents, 1, sizeof(cl_mem), &d_g);
     errNum |= clSetKernelArg(c_CopySrcToComponents, 2, sizeof(cl_mem), &d_b);
     errNum |= clSetKernelArg(c_CopySrcToComponents, 3, sizeof(cl_mem), &cl_d_src);
     errNum |= clSetKernelArg(c_CopySrcToComponents, 4, sizeof(int), &pixels);
     CHKERR(errNum, "Failed to set arguments [c_CopySrcToComponents]!");
+    LSB_Rec(0);
 
-    LSB_Init("dwt2d", 0);
     LSB_Set_Rparam_string("region", "c_CopySrcToComponents_kernel");
     LSB_Res();
     errNum = clEnqueueNDRangeKernel(commandQueue, c_CopySrcToComponents, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
@@ -140,25 +149,35 @@ void rgbToComponents(cl_mem d_r, cl_mem d_g, cl_mem d_b, unsigned char * h_src, 
 //in file components.cu
 void bwToComponent(cl_mem d_c, unsigned char * h_src, int width, int height)
 {
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup_and_transfer");
+    LSB_Res();
     cl_mem cl_d_src;
     int pixels      = width*height;
     int alignedSize =  DIVANDRND(pixels, THREADS) * THREADS;
 
     cl_d_src = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, pixels, h_src, NULL);
     CHKERR(errNum, "Failed to create buffer [cl_d_src]!");
+    LSB_Rec(0);
 
-    size_t globalWorkSize[1] = { alignedSize};
+    size_t globalWorkSize[1] = { alignedSize };
     size_t localWorkSize[1] = { THREADS };
     assert(alignedSize%(THREADS) == 0);
 
+    LSB_Set_Rparam_string("region", "setting_c_CopySrcToComponent_kernel_arguments");
+    LSB_Res();
     errNum  = clSetKernelArg(c_CopySrcToComponent, 0, sizeof(cl_mem), &d_c);
     errNum |= clSetKernelArg(c_CopySrcToComponent, 1, sizeof(cl_mem), &cl_d_src);
     errNum |= clSetKernelArg(c_CopySrcToComponent, 2, sizeof(int), &pixels);
     CHKERR(errNum, "Failed to set kernel arguments [c_CopySrcToComponent]!");
+    LSB_Rec(0);
+
+    LSB_Set_Rparam_string("region", "c_CopySrcToComponent_kernel");
+    LSB_Res();
     cl_event event;	
     errNum = clEnqueueNDRangeKernel(commandQueue, c_CopySrcToComponent, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
     clFinish(commandQueue);
     CHKERR(errNum, "Failed to enqueue kernel [c_CopySrcToComponent]!");
+    LSB_Rec(0);
 
     // Free Memory 
     errNum = clReleaseMemObject(cl_d_src);  
@@ -192,7 +211,8 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
 	size_t globalWorkSize[2] = { gx*WIN_SX, gy*1};
     size_t localWorkSize[2]  = { WIN_SX , 1};
     // printf("\n globalx=%d, globaly=%d, blocksize=%d\n", gx, gy, WIN_SX);
-	
+    LSB_Set_Rparam_string("region", "setting_kl_fdwt53Kernel_kernel_arguments");
+    LSB_Res();
 	errNum  = clSetKernelArg(kl_fdwt53Kernel, 0, sizeof(cl_mem), &in);
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 1, sizeof(cl_mem), &out);
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 2, sizeof(int), &sx);
@@ -200,15 +220,18 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 4, sizeof(int), &steps);
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 5, sizeof(int), &WIN_SX);
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 6, sizeof(int), &WIN_SY);
-	// fatal_CL(errNum, __LINE__);
+    LSB_Rec(0);
+    CHKERR(errNum, "Failed to set kernel arguments [kl_fdwt53Kernel]!");
+
     cl_event event;	
+    LSB_Set_Rparam_string("region", "kl_fdwt53Kernel_kernel");
+    LSB_Res();
 	errNum = clEnqueueNDRangeKernel(commandQueue, kl_fdwt53Kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &event);
     clWaitForEvents(1,&event);
-    clReleaseEvent(event);
+    LSB_Rec(0);
 
-	// fatal_CL(errNum, __LINE__);
-	printf("kl_fdwt53Kernel in launchFDW53Kernel has finished\n");
-	
+    clReleaseEvent(event);
+    CHKERR(errNum, "Failed to execute kernel [kl_fdwt53Kernel]!");
 
 }
 
@@ -220,10 +243,11 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
 /// param sy    height of copied image
 ///from /cuda_gwt/common.h/namespace
 void memCopy (cl_mem dest,  cl_mem src, const size_t sx, const size_t sy){
-
+    LSB_Set_Rparam_string("region", "device_side_d2d_copy");
+    LSB_Res();
 	errNum = clEnqueueCopyBuffer (commandQueue, src, dest, 0, 0, sx*sy*sizeof(int), 0, NULL, NULL);
-	// fatal_CL (errNum, __LINE__);
-
+    CHKERR(errNum, "Failed to copy memory buffer!");
+    LSB_Rec(0);
 }
 
 
@@ -239,8 +263,8 @@ void memCopy (cl_mem dest,  cl_mem src, const size_t sx, const size_t sy){
 //at the end of namespace dwt_cuda (line338)
 void fdwt53(cl_mem in, cl_mem out, int sizeX, int sizeY, int levels)
 {
+    LSB_Set_Rparam_int("dwt_level",levels);
     // select right width of kernel for the size of the image
-	
     if(sizeX >= 960) 
 	{
       launchFDWT53Kernel(192, 8, in, out, sizeX, sizeY);
@@ -321,10 +345,12 @@ int writeLinear(cl_mem component, int pixWidth, int pixHeight, const char * file
 	gpu_output = (int *)malloc(size);
     memset(gpu_output, 0, size);
 	result = (unsigned char *)malloc(samplesNum);
-	
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
 	errNum = clEnqueueReadBuffer(commandQueue, component, CL_TRUE, 0, size, gpu_output, 0, NULL, NULL);
-	// fatal_CL(errNum, __LINE__);	
-	
+    LSB_Rec(0);
+    CHKERR(errNum, "Failed to read buffer!");
+
 	// T to char 
 	samplesToChar(result, gpu_output, samplesNum);
 	
@@ -416,10 +442,11 @@ int writeNStage2DDWT(cl_mem component, int pixWidth, int pixHeight, int stages, 
     dst = (int *)malloc(size);
     memset(dst, 0, size);
     //result = (unsigned char *)malloc(samplesNum);
-
+    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+    LSB_Res();
     errNum = clEnqueueReadBuffer(commandQueue, component, CL_TRUE, 0, size, src, 0, NULL, NULL);
-    // fatal_CL(errNum, __LINE__);	
-
+    LSB_Rec(0);
+    CHKERR(errNum, "Failed to copy buffer [d2h]!");
 
     // LL Band 	
     size = bandDims[stages-1].LL.dimX * sizeof(int);
@@ -504,44 +531,45 @@ int writeNStage2DDWT(cl_mem component, int pixWidth, int pixHeight, int stages, 
 template <typename T>
 void processDWT(struct dwt *d, int forward, int writeVisual)
 {
-	
-	int componentSize = d->pixWidth * d->pixHeight * sizeof(T);
-    
+    LSB_Set_Rparam_string("region", "device_side_buffer_setup");
+    LSB_Res();
+
+    int componentSize = d->pixWidth * d->pixHeight * sizeof(T);
     T *c_r_out, *c_g_out, *c_b_out, *backup, *c_r, *c_g, *c_b;
-	
-	// initialize to zeros
-	cl_mem cl_c_r_out;
-	cl_c_r_out = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
+
+    // initialize to zeros
+    cl_mem cl_c_r_out;
+    cl_c_r_out = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
     CHKERR(errNum, "Failed to create buffer [cl_c_r_out]!");
-	
-	cl_mem cl_backup;
-	cl_backup  = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);  
+
+    cl_mem cl_backup;
+    cl_backup  = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);  
     CHKERR(errNum, "Failed to create buffer [cl_backup]!");
-	
-	if (d->components == 3) {
-		// Alloc two more buffers for G and B 
-		cl_mem cl_c_g_out;
-		cl_c_g_out = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);  
-		CHKERR(errNum, "Failed to create buffer [cl_c_g_out]!");
-		
-		cl_mem cl_c_b_out;
-		cl_c_b_out = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
+
+    if (d->components == 3) {
+        // Alloc two more buffers for G and B 
+        cl_mem cl_c_g_out;
+        cl_c_g_out = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);  
+        CHKERR(errNum, "Failed to create buffer [cl_c_g_out]!");
+
+        cl_mem cl_c_b_out;
+        cl_c_b_out = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
         CHKERR(errNum, "Failed to create buffer [cl_c_b_out]!");
         
         // Load components 
         cl_mem cl_c_r, cl_c_g, cl_c_b;
-		cl_c_r = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
+        cl_c_r = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
         CHKERR(errNum, "Failed to create buffer [cl_c_r]!");
-		cl_c_g = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
-		CHKERR(errNum, "Failed to create buffer [cl_c_g]!");
-		cl_c_b = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum); 
-		CHKERR(errNum, "Failed to create buffer [cl_c_b]!");
-		
+        cl_c_g = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
+        CHKERR(errNum, "Failed to create buffer [cl_c_g]!");
+        cl_c_b = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum); 
+        CHKERR(errNum, "Failed to create buffer [cl_c_b]!");
+        LSB_Rec(0);
+
         rgbToComponents(cl_c_r, cl_c_g, cl_c_b, d->srcImg, d->pixWidth, d->pixHeight);
 
-
+        printf("Working kernel memory: %fKiB\n",(componentSize*2)/1024.0);
         //Compute DWT and always store int file
-       
         nStage2dDWT(cl_c_r, cl_c_r_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
         nStage2dDWT(cl_c_g, cl_c_g_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
         nStage2dDWT(cl_c_b, cl_c_b_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
@@ -561,13 +589,9 @@ void processDWT(struct dwt *d, int forward, int writeVisual)
 #ifdef OUTPUT        
         // Store DWT to file
         if(writeVisual){
-            if(d->components == 3){
                 writeNStage2DDWT(cl_c_r_out, d->pixWidth, d->pixHeight, d->dwtLvls, d->outFilename, ".r");
                 writeNStage2DDWT(cl_c_g_out, d->pixWidth, d->pixHeight, d->dwtLvls, d->outFilename, ".g");
                 writeNStage2DDWT(cl_c_b_out, d->pixWidth, d->pixHeight, d->dwtLvls, d->outFilename, ".b");
-            } else{
-                writeNStage2DDWT(cl_c_r_out, d->pixWidth, d->pixHeight, d->dwtLvls, d->outFilename, "");
-            }
         } else {
             writeLinear(cl_c_r_out, d->pixWidth, d->pixHeight, d->outFilename, ".r");
             writeLinear(cl_c_g_out, d->pixWidth, d->pixHeight, d->outFilename, ".g");
@@ -586,9 +610,11 @@ void processDWT(struct dwt *d, int forward, int writeVisual)
         cl_mem cl_c_r;
         cl_c_r = clCreateBuffer(context, CL_MEM_READ_WRITE, componentSize, NULL, &errNum);
         CHKERR(errNum, "Failed to create buffer [cl_c_r]!");
+        LSB_Rec(0);
 
         bwToComponent(cl_c_r, d->srcImg, d->pixWidth, d->pixHeight);
 
+        printf("Working kernel memory: %fKiB\n",(componentSize*2)/1024.0);
         // Compute DWT
         nStage2dDWT(cl_c_r, cl_c_r_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
     
@@ -807,35 +833,41 @@ int main(int argc, char **argv)
     {
         return EXIT_FAILURE;
     }
-	// Create OpenCL program from com_dwt.cl kernel source
-	program = ocdBuildProgramFromFile(context,device_id,"dwt2d_kernel","");
+
+    LSB_Set_Rparam_string("region", "kernel_creation");
+    LSB_Res();
+
+    // Create OpenCL program from com_dwt.cl kernel source
+    program = ocdBuildProgramFromFile(context,device_id,"dwt2d_kernel","");
     if (program == NULL)
     {
         printf("fail to create program!!\n");
     }
 
-	// Create OpenCL kernel
-	c_CopySrcToComponents = clCreateKernel(program, "c_CopySrcToComponents", NULL); 
-	if (c_CopySrcToComponents == NULL)
+    // Create OpenCL kernel
+    c_CopySrcToComponents = clCreateKernel(program, "c_CopySrcToComponents", NULL); 
+    if (c_CopySrcToComponents == NULL)
     {
         std::cerr << "Failed to create kernel" << std::endl;
     }
 
-	c_CopySrcToComponent = clCreateKernel(program, "c_CopySrcToComponent", NULL); 
-	if (c_CopySrcToComponent == NULL)
+    c_CopySrcToComponent = clCreateKernel(program, "c_CopySrcToComponent", NULL); 
+    if (c_CopySrcToComponent == NULL)
     {
         std::cerr << "Failed to create kernel" << std::endl;
     }
-	
-	kl_fdwt53Kernel = clCreateKernel(program, "cl_fdwt53Kernel", NULL); 
+
+    kl_fdwt53Kernel = clCreateKernel(program, "cl_fdwt53Kernel", NULL); 
     if (kl_fdwt53Kernel == NULL)
-	{
-		std::cerr<<"Failed to create kernel\n";
-	}
-	
-	
-	//initialize struct dwt
-	struct dwt *d;
+    {
+        std::cerr<<"Failed to create kernel\n";
+    }
+    LSB_Rec(0);
+
+    LSB_Set_Rparam_string("region", "host_side_setup");
+    LSB_Res();
+    //initialize struct dwt
+    struct dwt *d;
     d = (struct dwt *)malloc(sizeof(struct dwt));
     d->srcImg = NULL;
     d->dwtLvls  = dwtLvls;
@@ -870,6 +902,7 @@ int main(int argc, char **argv)
     printf(" Dimensions:\t\t%dx%d\n", d->pixWidth, d->pixHeight);
     printf(" DWT levels:\t\t%d\n", d->dwtLvls);
     printf(" 9/7 transform:\t\t%d\n", dwt97);
+    LSB_Rec(0);
 
     // DWT
     // Create memory objects, Set arguments for kernel functions, Queue the kernel up for execution across the array, Read the output buffer back to the Host, Output the result buffer
