@@ -210,6 +210,7 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
     // prepare grid size
 	size_t globalWorkSize[2] = { gx*WIN_SX, gy*1};
     size_t localWorkSize[2]  = { WIN_SX , 1};
+
     // printf("\n globalx=%d, globaly=%d, blocksize=%d\n", gx, gy, WIN_SX);
     LSB_Set_Rparam_string("region", "setting_kl_fdwt53Kernel_kernel_arguments");
     LSB_Res();
@@ -223,14 +224,12 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
     LSB_Rec(0);
     CHKERR(errNum, "Failed to set kernel arguments [kl_fdwt53Kernel]!");
 
-    cl_event event;	
     LSB_Set_Rparam_string("region", "kl_fdwt53Kernel_kernel");
     LSB_Res();
-	errNum = clEnqueueNDRangeKernel(commandQueue, kl_fdwt53Kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &event);
-    clWaitForEvents(1,&event);
+	errNum = clEnqueueNDRangeKernel(commandQueue, kl_fdwt53Kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+    clFinish(commandQueue);
     LSB_Rec(0);
 
-    clReleaseEvent(event);
     CHKERR(errNum, "Failed to execute kernel [kl_fdwt53Kernel]!");
 
 }
@@ -272,10 +271,15 @@ void fdwt53(cl_mem in, cl_mem out, int sizeX, int sizeY, int levels)
 	else if (sizeX >= 480) 
 	{
       launchFDWT53Kernel(128, 8, in, out, sizeX, sizeY);
-    } else 
+    } else if (sizeX >= 240) 
 	{
       launchFDWT53Kernel(64, 8, in, out, sizeX, sizeY);
 	}
+    else
+    {
+      launchFDWT53Kernel(8, 8, in, out, sizeX, sizeY);
+	}
+
 		
 	// if this was not the last level, continue recursively with other levels
 	if (levels > 1)
@@ -735,7 +739,7 @@ bool savePGM(char* filename, int width, int height, int* data){
     unsigned char* buff = (unsigned char*)malloc(sizeof(unsigned char)*width*height);
     //first convert from a signed image data (-128,128) to signed (0,255)
     for(int i = 0 ; i < width*height ; i++){
-        buff[i] = (unsigned char)data[i]+128;
+        buff[i] = (unsigned char)(data[i]+128);
     }
     savePGM(filename,width,height,buff);
     free(buff);

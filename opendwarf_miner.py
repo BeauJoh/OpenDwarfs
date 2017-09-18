@@ -45,9 +45,17 @@ csr = {'name':'csr',
        'large':'-i ../test/sparse-linear-algebra/SPMV/large',#16384, 10677.8KiB
        'full name':'Compressed Sparse Row'}
 fft = {'name':'openclfft',
-       'alias':'clfft',
+       'alias':'openclfft',
        'default':'128',
        'tiny':'2048', #32KiB
+       'small':'16384 ',#256KiB
+       'medium':'524288', #8192KiB
+       'large':'2097152', #32768KiB
+       'full name':'Fast Fourier Transform'}
+dwt = {'name':'dwt2d',
+       'alias':'dwt2d',
+       'default':'-l 3 ../test/spectral-methods/dwt2d/airplane.ppm -w airplane', #writes out the dwt2d wavelet coefficients in a visual form to 
+       'tiny':'-l 1 ../test/spectral-methods/dwt2d/tiny-baboon.ppm tiny-baboon-coefficients', #32KiB
        'small':'16384 ',#256KiB
        'medium':'524288', #8192KiB
        'large':'2097152', #32768KiB
