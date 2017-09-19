@@ -60,8 +60,8 @@ dwt = {'name':'dwt2d',
        'medium':'-l 3 ../test/spectral-methods/dwt2d/1152x864-gum.ppm medium-gum-coefficients', #8192KiB
        'large':'-l 3 ../test/spectral-methods/dwt2d/3648x2736-gum.ppm large-gum-coefficients', #32768KiB
        'full name':'2D Discrete Wavelet Transform'}
-gem = {'name':'gem',
-       'alias':'gem',
+gem = {'name':'gemnoui',
+       'alias':'gemnoui',
        'default':"../test/n-body-methods/gem/nucleosome 80 1 0",
        'tiny':"../test/n-body-methods/gem/4TUT 80 1 0", #31.3KiB
        'small':"../test/n-body-methods/gem/2D3V 80 1 0", #252.0KiB
@@ -142,10 +142,10 @@ if socket.gethostname() == "Beaus-MacBook-Air.local":
     device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
 
 if socket.gethostname() == "gpgpu": 
-    #device_name = "i7-6700k"
-    #device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
-    device_name = "gtx1080"
-    device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
+    device_name = "i7-6700k"
+    device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
+    #device_name = "gtx1080"
+    #device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
 
 if socket.gethostname() == "node03":
     device_name = "knl"
@@ -291,7 +291,7 @@ selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
-selected_applications = [fft,dwt]
+selected_applications = [fft,dwt,gem,srad]
 selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
