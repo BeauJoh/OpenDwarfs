@@ -87,10 +87,10 @@ cfd = {'name':'cfd',
 crc = {'name':'crc',
        'alias':'crc',
        'default':'-i ../test/combinational-logic/crc/crc_1000x8192.txt',
-       'tiny':'../test/combinational-logic/crc/crc_1000x2000.txt',#31.31KiB
-       'small':'../test/combinational-logic/crc/crc_1000x16000.txt',#250.06KiB
-       'medium':'../test/combinational-logic/crc/crc_1000x524000.txt',#8187.56KiB
-       'large':'../test/combinational-logic/crc/crc_1000x4194304.txt',#65536.06KiB
+       'tiny':'-i ../test/combinational-logic/crc/crc_1000x2000.txt',#31.31KiB
+       'small':'-i ../test/combinational-logic/crc/crc_1000x16000.txt',#250.06KiB
+       'medium':'-i ../test/combinational-logic/crc/crc_1000x524000.txt',#8187.56KiB
+       'large':'-i ../test/combinational-logic/crc/crc_1000x4194304.txt',#65536.06KiB
        'full name':'Cyclic-Redundancy Check'}
 bfs = {'name':'bfs',
        'alias':'bfs',
