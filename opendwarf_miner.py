@@ -307,7 +307,7 @@ selected_applications = [
                          crc,
                          ]
 
-selected_problem_sizes = ['tiny',
+selected_problem_sizes = [#'tiny',
                           'small',
                           'medium',
                           'large',
