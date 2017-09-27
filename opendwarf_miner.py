@@ -62,9 +62,9 @@ dwt = {'name':'dwt2d',
        'full name':'2D Discrete Wavelet Transform'}
 gem = {'name':'gemnoui',
        'alias':'gem',
-       'default':"../test/n-body-methods/gem/nucleosome 80 1 0",
-       'tiny':"../test/n-body-methods/gem/4TUT 80 1 0", #31.3KiB
-       'small':"../test/n-body-methods/gem/2D3V 80 1 0", #252.0KiB
+       'default':'../test/n-body-methods/gem/nucleosome 80 1 0',
+       'tiny':'../test/n-body-methods/gem/4TUT 80 1 0', #31.3KiB
+       'small':'../test/n-body-methods/gem/2D3V 80 1 0', #252.0KiB
        'medium':'../test/n-body-methods/gem/nucleosome 80 1 0', #7498.1KiB
        'large':'../test/n-body-methods/gem/1KX5 80 1 0', #10970.2KiB
        'full name':'Gemnoui'}
@@ -146,10 +146,10 @@ if socket.gethostname() == "Beaus-MacBook-Air.local":
     device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
 
 if socket.gethostname() == "gpgpu": 
-    #device_name = "i7-6700k"
-    #device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
-    device_name = "gtx1080"
-    device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
+    device_name = "i7-6700k"
+    device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
+    #device_name = "gtx1080"
+    #device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
 
 if socket.gethostname() == "node03":
     device_name = "knl"
@@ -164,10 +164,10 @@ if socket.gethostname() == "node01":
     device_parameters = GenerateDeviceParameters(0,0,0)#ivybridge Xeon E5-2697v2
 
 if socket.gethostname() == "node23":
-    #device_name = "gtx1080ti"
-    #device_parameters = GenerateDeviceParameters(0,0,1)#gtx1080ti
-    device_name = "titanx"
-    device_parameters = GenerateDeviceParameters(0,0,1)#titanx
+    device_name = "gtx1080ti"
+    device_parameters = GenerateDeviceParameters(0,0,1)#gtx1080ti
+    #device_name = "titanx"
+    #device_parameters = GenerateDeviceParameters(0,0,1)#titanx
 
 if socket.gethostname() == "node20":
     #device_name = "k20c"
@@ -295,8 +295,23 @@ selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
-selected_applications = [fft]#fft,dwt,gem,srad]
-selected_problem_sizes = ['tiny','small','medium','large']
+
+selected_applications = [
+                         #kmeans,
+                         #lud,
+                         #csr,
+                         #fft,
+                         #dwt,
+                         #gem,
+                         #srad,
+                         crc,
+                         ]
+
+selected_problem_sizes = ['tiny',
+                          'small',
+                          'medium',
+                          'large',
+                          ]
 #instrument all applications
 for application in selected_applications:
     for papi_env in selected_papi_envs:
@@ -308,7 +323,7 @@ for application in selected_applications:
                                                    papi_env['parameters'])
             if all_good:
                 StoreRun(application,
-                        'results/'+device_name+'_'+application['name']+'_'+problem_size+'_'+papi_env['name'])
+                        'results/'+device_name+'_'+application['alias']+'_'+problem_size+'_'+papi_env['name'])
             else:
                 import ipdb
                 ipdb.set_trace()
