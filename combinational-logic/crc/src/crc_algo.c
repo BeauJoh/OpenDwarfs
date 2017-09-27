@@ -354,6 +354,9 @@ int main(int argc, char** argv)
             LSB_Rec(i);
 		}
 
+        printf("Working kernel memory: %fKiB\n",
+                (sizeof(char)*page_size*num_parallel_crcs[h] + sizeof(int)*num_parallel_crcs[h])/1024.0);
+
 		for(l=0; l<num_kernels; l++)
 		{
 			if(verbosity) printf("Executing with kernel #%u of %u: %s\n",l+1,num_kernels,kernel_files[l]);

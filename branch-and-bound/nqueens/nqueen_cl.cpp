@@ -366,7 +366,11 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 		m_SolverInfo[i].m_TotalTime = 0;
 	}
     LSB_Rec(0);
-
+    printf("Working kernel memory: %fKiB\n",
+            ((max_pitch * sizeof(int) * (32 + 32))+
+             (max_pitch * sizeof(int) * 64) +
+             (32 * sizeof(int))+
+             sizeof(int))/1024.0);
 	std::vector<unsigned int> mask_vector(max_pitch * (4 + 32));
 	std::vector<unsigned int> results(max_pitch * 4);
 	std::vector<bool> forbidden_written(threads.size());

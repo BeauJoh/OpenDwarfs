@@ -61,7 +61,7 @@ dwt = {'name':'dwt2d',
        'large':'-l 3 ../test/spectral-methods/dwt2d/3648x2736-gum.ppm large-gum-coefficients', #32768KiB
        'full name':'2D Discrete Wavelet Transform'}
 gem = {'name':'gemnoui',
-       'alias':'gemnoui',
+       'alias':'gem',
        'default':"../test/n-body-methods/gem/nucleosome 80 1 0",
        'tiny':"../test/n-body-methods/gem/4TUT 80 1 0", #31.3KiB
        'small':"../test/n-body-methods/gem/2D3V 80 1 0", #252.0KiB
@@ -87,6 +87,10 @@ cfd = {'name':'cfd',
 crc = {'name':'crc',
        'alias':'crc',
        'default':'-i ../test/combinational-logic/crc/crc_1000x8192.txt',
+       'tiny':'../test/combinational-logic/crc/crc_1000x2000.txt',#31.31KiB
+       'small':'../test/combinational-logic/crc/crc_1000x16000.txt',#250.06KiB
+       'medium':'../test/combinational-logic/crc/crc_1000x524000.txt',#8187.56KiB
+       'large':'../test/combinational-logic/crc/crc_1000x4194304.txt',#65536.06KiB
        'full name':'Cyclic-Redundancy Check'}
 bfs = {'name':'bfs',
        'alias':'bfs',
@@ -142,10 +146,10 @@ if socket.gethostname() == "Beaus-MacBook-Air.local":
     device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
 
 if socket.gethostname() == "gpgpu": 
-    device_name = "i7-6700k"
-    device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
-    #device_name = "gtx1080"
-    #device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
+    #device_name = "i7-6700k"
+    #device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
+    device_name = "gtx1080"
+    device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
 
 if socket.gethostname() == "node03":
     device_name = "knl"
@@ -291,7 +295,7 @@ selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
-selected_applications = [fft,dwt,gem,srad]
+selected_applications = [fft]#fft,dwt,gem,srad]
 selected_problem_sizes = ['tiny','small','medium','large']
 #instrument all applications
 for application in selected_applications:
