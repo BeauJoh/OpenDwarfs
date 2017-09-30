@@ -1,6 +1,14 @@
 #/usr/bin/env python
 from opendwarf_miner_utils import *
 
+from sys import argv,exit
+selected_device = 0
+selected_applications = None
+if len(argv) == 3:
+    selected_device = int(argv[1])
+    selected_applications = str(argv[2])
+    print("Using device:"+str(selected_device)+"on application:"+selected_applications)
+
 #Benchmark parameters:
 kmeans = {'name':'kmeans',
           'alias':'kmeans',
@@ -145,11 +153,13 @@ if socket.gethostname() == "Beaus-MacBook-Air.local":
     device_name = "intel_hd_graphics_5000"
     device_parameters = GenerateDeviceParameters(0,1,1)#Intel HD Graphics 5000
 
-if socket.gethostname() == "gpgpu": 
-    device_name = "i7-6700k"
-    device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
-    #device_name = "gtx1080"
-    #device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
+if socket.gethostname() == "gpgpu":
+    if selected_device == 0:
+        device_name = "i7-6700k"
+        device_parameters = GenerateDeviceParameters(0,0,0)#i7-6700K
+    else:
+        device_name = "gtx1080"
+        device_parameters = GenerateDeviceParameters(1,0,1)#GTX 1080
 
 if socket.gethostname() == "node03":
     device_name = "knl"
@@ -164,22 +174,28 @@ if socket.gethostname() == "node01":
     device_parameters = GenerateDeviceParameters(0,0,0)#ivybridge Xeon E5-2697v2
 
 if socket.gethostname() == "node23":
-    device_name = "gtx1080ti"
-    device_parameters = GenerateDeviceParameters(0,0,1)#gtx1080ti
-    #device_name = "titanx"
-    #device_parameters = GenerateDeviceParameters(0,0,1)#titanx
+    if selected_device == 0:
+        device_name = "gtx1080ti"
+        device_parameters = GenerateDeviceParameters(0,0,1)#gtx1080ti
+    else:
+        device_name = "titanx"
+        device_parameters = GenerateDeviceParameters(0,0,1)#titanx
 
 if socket.gethostname() == "node20":
-    #device_name = "k20c"
-    #device_parameters = GenerateDeviceParameters(0,0,1)#k20c
-    device_name = "k40c"
-    device_parameters = GenerateDeviceParameters(0,0,1)#k40c
+    if selected_device == 0:
+        device_name = "k20c"
+        device_parameters = GenerateDeviceParameters(0,0,1)#k20c
+    else:
+        device_name = "k40c"
+        device_parameters = GenerateDeviceParameters(0,0,1)#k40c
 
 if socket.gethostname() == "node02":
-    #device_name = "spectre"
-    #device_parameters = GenerateDeviceParameters(0,0,1)#spectre gpu
-    device_name = "a10-780k"
-    device_parameters = GenerateDeviceParameters(0,1,1)#AMD A10-7850K Radeon R7
+    if selected_device == 0:
+        device_name = "spectre"
+        device_parameters = GenerateDeviceParameters(0,0,1)#spectre gpu
+    else:
+        device_name = "a10-780k"
+        device_parameters = GenerateDeviceParameters(0,1,1)#AMD A10-7850K Radeon R7
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
@@ -286,28 +302,31 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L2_data_cache_miss_rate'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
+if selected_applications == None:
+    selected_applications = [
+                             #kmeans,
+                             #lud,
+                             #csr,
+                             #fft,
+                             #dwt,
+                             #gem,
+                             #srad,
+                             crc,
+                            ]
+else:
+    exec("%s = [%s]"%("selected_applications",selected_applications))
+
 #selected_applications = [kmeans_coarse_iteration_profile]#kmeans]
 #selected_applications = [fft]#csr,kmeans]
 #selected_applications.extend(dense_linear_algebra)
 
 #if running the whole list of dwarfs, we need to flatten the list first
-selected_applications = reduce(lambda x,y :x+y ,dwarfs)
+#selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
 selected_repetitions = 50#300
 selected_device = device_parameters
 
-selected_applications = [
-                         #kmeans,
-                         #lud,
-                         #csr,
-                         #fft,
-                         #dwt,
-                         #gem,
-                         #srad,
-                         crc,
-                         ]
-
-selected_problem_sizes = [#'tiny',
+selected_problem_sizes = ['tiny',
                           'small',
                           'medium',
                           'large',

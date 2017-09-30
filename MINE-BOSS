@@ -1,0 +1,15 @@
+#!/bin/bash
+
+#if [ "$#" -ne 2 ]; then
+#    echo "Incorrect number of arguments"
+#    exit
+#fi
+#
+#DEVICE=$1
+#DEVICE_ID=$2
+
+cd ~/OpenDwarfs/build-$DEVICE/;
+echo "issuing... $APPLICATION to $DEVICE with id $DEVICE_ID" &>> ~/mine-boss.log
+make 2>&1 make.log;
+python ./opendwarf_miner.py $DEVICE_ID $APPLICATION > miner.log
+

@@ -191,7 +191,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
     /* copy membership (host to device) */
 
-    errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+    errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(cl_int), (void *) membership_new, 0, NULL, &ocdTempEvent);
     clFinish(commands);
     START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Membership Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
@@ -199,7 +199,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	/* copy clusters (host to device) */
 
-	errcode = clEnqueueWriteBuffer(commands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &ocdTempEvent);
+	errcode = clEnqueueWriteBuffer(commands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(cl_float), (void *) clusters[0], 0, NULL, &ocdTempEvent);
     clFinish(commands);
     START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Cluster Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
@@ -215,9 +215,9 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     /* setup execution parameters. */
     unsigned int arg = 0;
     errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);
-    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nfeatures);
-    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &npoints);
-    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(int), (void *) &nclusters);
+    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_int), (void *) &nfeatures);
+    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_int), (void *) &npoints);
+    errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_int), (void *) &nclusters);
     errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &membership_d);
     errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &clusters_d);
     CHKERR(errcode, "Failed to set kernel arg!");
@@ -246,7 +246,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     LSB_Set_Rparam_string("region", "device_side_d2h_copy");
     LSB_Res();
 #endif
-    errcode = clEnqueueReadBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+    errcode = clEnqueueReadBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(cl_int), (void *) membership_new, 0, NULL, &ocdTempEvent);
     clFinish(commands);
     START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
