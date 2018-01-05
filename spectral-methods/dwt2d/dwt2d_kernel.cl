@@ -303,7 +303,7 @@ struct TransformBuffer
 	int SHM_BANKS, BUFFER_SIZE, PADDING, ODD_OFFSET;
 	
 	/// buffer for both even and odd columns
-    int data[2182];     //data[2 * BUFFER_SIZE + PADDING]
+    __local int* data;     //data[2 * BUFFER_SIZE + PADDING]
 };
 
 
@@ -515,17 +515,13 @@ void loadAndVerticallyTransform (__local struct FDWT53 *fdwt53,
                                  __global const int * const input,
                                  struct VerticalDWTPixelIO *pIO)
 {
-		fdwt53->buffer.data[column->offset + 0 * fdwt53->STRIDE] = column->pixel0;
-		fdwt53->buffer.data[column->offset + 1 * fdwt53->STRIDE] = column->pixel1;
-		fdwt53->buffer.data[column->offset + 2 * fdwt53->STRIDE] = column->pixel2;
-	
-
-	for (int i = 3; i < (3 + fdwt53->WIN_SIZE_Y); i++) 
-	{
-		fdwt53->buffer.data[column->offset + i * fdwt53->STRIDE] = loadFrom(&(column->loader),input, pIO, CHECKED);
-
-	} 
-
+    fdwt53->buffer.data[column->offset + 0 * fdwt53->STRIDE] = column->pixel0;
+    fdwt53->buffer.data[column->offset + 1 * fdwt53->STRIDE] = column->pixel1;
+    fdwt53->buffer.data[column->offset + 2 * fdwt53->STRIDE] = column->pixel2;
+    for (int i = 3; i < (3 + fdwt53->WIN_SIZE_Y); i++) 
+    {
+        fdwt53->buffer.data[column->offset + i * fdwt53->STRIDE] = loadFrom(&(column->loader),input, pIO, CHECKED);
+    } 
 
 	column->pixel0 = fdwt53->buffer.data [column->offset + ( fdwt53->WIN_SIZE_Y + 0 ) * fdwt53->STRIDE] ;
 	column->pixel1 = fdwt53->buffer.data [column->offset + ( fdwt53->WIN_SIZE_Y + 1 ) * fdwt53->STRIDE] ;
@@ -636,34 +632,38 @@ void Forward53Update (const int p,
 		*c += (p + n + 2) /4;
 }
 
-
 __kernel void cl_fdwt53Kernel(__global const int * const in, 
                               __global int *  out, 
                               const int sx, 
                               const int sy, 
                               const int steps,
                               int WIN_SIZE_X,
-                              int WIN_SIZE_Y)
+                              int WIN_SIZE_Y,
+                              __local int* buffer)
 {
 	__local struct FDWT53 fdwt53;
-    fdwt53.WIN_SIZE_X = WIN_SIZE_X;
-    fdwt53.WIN_SIZE_Y = WIN_SIZE_Y;
-	
-	//initialize
-	for(int i = 0; i < sizeof(fdwt53.buffer)/sizeof(int); i++){
-		fdwt53.buffer.data[i] = 0;
-	}
-	
-	fdwt53.buffer.SIZE_X = fdwt53.WIN_SIZE_X;
-	fdwt53.buffer.SIZE_Y = fdwt53.WIN_SIZE_Y + 3;
-	fdwt53.buffer.VERTICAL_STRIDE = BOUNDARY_X + (fdwt53.buffer.SIZE_X / 2);//BOUNDARY = 2  
-	fdwt53.buffer.SHM_BANKS = 32;  // SHM_BANKS = ((__CUDA_ARCH__ >= 200) ? 32 : 16)
-	fdwt53.buffer.BUFFER_SIZE = fdwt53.buffer.VERTICAL_STRIDE * fdwt53.buffer.SIZE_Y;
-	fdwt53.buffer.PADDING = fdwt53.buffer.SHM_BANKS - ((fdwt53.buffer.BUFFER_SIZE + fdwt53.buffer.SHM_BANKS / 2) % fdwt53.buffer.SHM_BANKS) ;
-	fdwt53.buffer.ODD_OFFSET = fdwt53.buffer.BUFFER_SIZE + fdwt53.buffer.PADDING ;
-	fdwt53.STRIDE = fdwt53.buffer.VERTICAL_STRIDE ; 
 
-	const int maxX = (get_group_id(0) + 1) * WIN_SIZE_X + 1;
+	//initialize the TransformBuffer object
+    if(get_local_id(0) == 0){
+        fdwt53.buffer.data = buffer;
+        fdwt53.WIN_SIZE_X = WIN_SIZE_X;
+        fdwt53.WIN_SIZE_Y = WIN_SIZE_Y;
+        fdwt53.buffer.SIZE_X = fdwt53.WIN_SIZE_X;
+        fdwt53.buffer.SIZE_Y = fdwt53.WIN_SIZE_Y + 3;
+        fdwt53.buffer.VERTICAL_STRIDE = BOUNDARY_X + (fdwt53.buffer.SIZE_X / 2);//BOUNDARY = 2  
+        fdwt53.buffer.SHM_BANKS = 32;  // SHM_BANKS = ((__CUDA_ARCH__ >= 200) ? 32 : 16)
+        fdwt53.buffer.BUFFER_SIZE = fdwt53.buffer.VERTICAL_STRIDE * fdwt53.buffer.SIZE_Y;
+        fdwt53.buffer.PADDING = fdwt53.buffer.SHM_BANKS - ((fdwt53.buffer.BUFFER_SIZE + fdwt53.buffer.SHM_BANKS / 2) % fdwt53.buffer.SHM_BANKS) ;
+        fdwt53.buffer.ODD_OFFSET = fdwt53.buffer.BUFFER_SIZE + fdwt53.buffer.PADDING ;
+        fdwt53.STRIDE = fdwt53.buffer.VERTICAL_STRIDE ; 
+
+        for(int i = 0; i < fdwt53.buffer.BUFFER_SIZE; i++){
+            fdwt53.buffer.data[i] = 0;
+        }
+    }
+    barrier(CLK_GLOBAL_MEM_FENCE);	
+
+    const int maxX = (get_group_id(0) + 1) * WIN_SIZE_X + 1;
     const int maxY = (get_group_id(1) + 1) * WIN_SIZE_Y * steps + 1;
     const bool atRightBoudary = maxX >= sx;
     const bool atBottomBoudary = maxY >= sy;

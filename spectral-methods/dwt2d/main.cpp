@@ -204,7 +204,6 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
 	
 	int gx = ( sx/ WIN_SX) + ((sx %  WIN_SX) ? 1 : 0);  //use function divRndUp(n, d){return (n / d) + ((n % d) ? 1 : 0);}
 	int gy = ( sy/ (WIN_SY*steps)) + ((sy %  (WIN_SY*steps)) ? 1 : 0);
-	
 	printf("sliding steps = %d , gx = %d , gy = %d \n", steps, gx, gy);
 	
     // prepare grid size
@@ -221,6 +220,7 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 4, sizeof(int), &steps);
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 5, sizeof(int), &WIN_SX);
 	errNum |= clSetKernelArg(kl_fdwt53Kernel, 6, sizeof(int), &WIN_SY);
+    errNum |= clSetKernelArg(kl_fdwt53Kernel, 7, (WIN_SX*WIN_SY*3)*sizeof(int), NULL);
     LSB_Rec(0);
     CHKERR(errNum, "Failed to set kernel arguments [kl_fdwt53Kernel]!");
 

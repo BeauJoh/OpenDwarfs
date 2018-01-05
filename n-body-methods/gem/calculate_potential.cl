@@ -22,6 +22,8 @@ typedef struct
 
 
 //extern int printf(constant char* format, ...);
+extern inline float dist2D(float x, float y, float z, float x2, float y2, float z2);
+extern inline float distD (float x, float y, float z, float x2, float y2, float z2);
 
 inline float dist2D(float x, float y, float z, float x2, float y2, float z2)
 {
