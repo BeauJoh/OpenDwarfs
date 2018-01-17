@@ -218,7 +218,7 @@ runTest( int argc, char** argv)
     LSB_Res();
 
 	//Allocate device memory
-	J_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+	J_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*(size_I+1), NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 	C_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
