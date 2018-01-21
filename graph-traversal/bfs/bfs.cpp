@@ -227,6 +227,15 @@ void BFSGraph(int argc, char ** argv)
 	END_TIMER(ocdTempTimer)
     LSB_Rec(0);
 
+    printf("Working kernel memory: %fKiB\n",
+                (sizeof(Node) * no_of_nodes+
+                 sizeof(int) * edge_list_size+
+                 sizeof(int) * no_of_nodes+
+                 sizeof(int) * no_of_nodes+
+                 sizeof(int) * no_of_nodes+
+                 sizeof(int) * no_of_nodes+
+                 sizeof(int))/1024.0);
+
 	printf("Copied Everything to device memory\n");
 
 	//setup execution parameters (compile code)
