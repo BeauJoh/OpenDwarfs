@@ -67,7 +67,6 @@
 #include <math.h>
 
 #include "kmeans.h"
-#include "../../include/lsb.h"
 
 #define RANDOM_MAX 2147483647
 

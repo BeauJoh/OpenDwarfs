@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "../../include/lsb.h"
 #include "../../include/portable_memory.h"
 
 #define AOCL_ALIGNMENT 64

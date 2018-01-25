@@ -40,6 +40,8 @@
 #ifndef _H_FUZZY_KMEANS
 #define _H_FUZZY_KMEANS
 
+#include "../../include/lsb.h"
+
 #ifndef FLT_MAX
 #define FLT_MAX 3.40282347e+38
 #endif
