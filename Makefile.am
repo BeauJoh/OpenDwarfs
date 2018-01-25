@@ -70,7 +70,7 @@ testruns += lud
 endif
 
 if build_kmeans
-include dense-linear-algebra/kmeans/Makefile.mk
+include mapreduce/kmeans/Makefile.mk
 testruns += kmeans
 endif
 
