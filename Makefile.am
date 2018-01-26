@@ -37,6 +37,12 @@ LDADD = include/common_args.o include/rdtsc.o include/portable_memory.o libopts.
 #the OpenDwarf directory
 #finally configure with the following argument:
 ##../configure --enable-libscibench
+if libscibench
+DUMMY=dummy
+else
+ocd_SOURCES += include/lsb.c 
+LDADD += include/lsb.o
+endif
 
 if build_gem
 include n-body-methods/gem/Makefile.mk
@@ -64,7 +70,7 @@ testruns += lud
 endif
 
 if build_kmeans
-include dense-linear-algebra/kmeans/Makefile.mk
+include mapreduce/kmeans/Makefile.mk
 testruns += kmeans
 endif
 

@@ -11,7 +11,7 @@ if len(argv) == 2:
 #Benchmark parameters:
 kmeans = {'name':'kmeans',
           'alias':'kmeans',
-          'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
+          'default':'-i ../test/mapreduce/kmeans/65536_34f.txt',
           'tiny':'-g -f 30 -p 256',     #< 32K, object increments of 1KiB
           'small':'-g -f 30 -p 2048',   #< 256K, object increments of 8KiB
           'medium':'-g -f 30 -p 65600', #< 8196K, object increments of 256KiB
@@ -20,7 +20,7 @@ kmeans = {'name':'kmeans',
 kmeans_coarse_iteration_profile = {
         'name':'kmeans_profiling_outer_loop',
         'alias':'kmeans',
-        'default':'-i ../test/dense-linear-algebra/kmeans/65536_34f.txt',
+        'default':'-i ../test/mapreduce/kmeans/65536_34f.txt',
         'tiny':'-g -f 30 -p 256',     # 1KiB
         'small':'-g -f 30 -p 2048',   # 8KiB
         'medium':'-g -f 30 -p 65600', # 256KiB

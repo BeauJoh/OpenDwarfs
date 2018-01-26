@@ -164,6 +164,7 @@ if test ! -z "$LIBSCIBENCH_PREFIX" ; then
    PAC_APPEND_FLAG([-DTIME_WITH_LIBSCIBENCH],[CPPFLAGS])
    AC_MSG_RESULT([using LibSciBench ... -I${LIBSCIBENCH_PREFIX}/include -L${LIBSCIBENCH_PREFIX}/lib])
 fi
+AM_CONDITIONAL([libscibench], [test ! -z "$LIBSCIBENCH_PREFIX"])
 
 AC_ARG_WITH([papi],
             AS_HELP_STRING([--with-papi],[path to papi]), [LIBPAPI_PREFIX=$withval],[LIBPAPI_PREFIX=])

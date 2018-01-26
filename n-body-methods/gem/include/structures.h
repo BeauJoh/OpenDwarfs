@@ -19,17 +19,9 @@
 #ifndef __GEM_STRUCTURES_H__
 #define __GEM_STRUCTURES_H__
 
-//#include <config.h>
-
-/* definitions for array indices corresponding to specific bounding
- * values */
-#define MIN    0
-#define MAX    1
-#define EXTENT 2
-#define CENTER 3
-
-#define POTENTIAL   0
-#define ATM_CHARGE  1
+/* definitions for array indices corresponding to specific bounding values */
+static const int MIN = 0;
+static const int MAX = 1;
 
 typedef unsigned short ushort;
 typedef unsigned long  ulong;
