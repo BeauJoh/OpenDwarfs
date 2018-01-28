@@ -352,6 +352,23 @@ int main(int argc, char ** argv)
 	CHKERR(err, "create mutex mem error!");
     LSB_Rec(0);
 
+    printf("Working kernel memory: %fKiB\n",
+            ((sizeof(cl_char) * length+
+              sizeof(cl_char) * length+
+              sizeof(cl_char) * length * 2+
+              sizeof(cl_char) * length * 2+
+              sizeof(cl_int) * (2 * length)+
+              sizeof(cl_int) * (2 * length)+
+              sizeof(cl_char) * maxElemNum+
+              sizeof(cl_char) * maxElemNum+
+              sizeof(cl_float) * maxElemNum+
+              sizeof(cl_float) * maxElemNum+
+              sizeof(cl_float) * maxElemNum+
+              sizeof(MAX_INFO) * mfThreadNum+
+              sizeof(cl_float) * nblosumWidth * nblosumHeight+
+              sizeof(cl_int))/1024.0));
+
+
 	//copy the scoring matrix to the constant memory
 	//copyScoringMatrixToConstant();
     LSB_Set_Rparam_string("region", "host_side_setup");

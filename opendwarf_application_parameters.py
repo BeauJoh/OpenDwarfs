@@ -101,6 +101,10 @@ bfs = {'name':'bfs',
 nw = {'name':'needle',
       'alias':'needle',
       'default':"2048 10",
+      'tiny':"48 10",#18.76KiB (must be a multiple of 16)
+      'small':"176 10",#244.76KiB 
+      'medium':'1008 10',#7953.76KiB
+      'large':'4096 10',#131136KiB
       'full name':'Needleman-Wunsch'}
 swat = {'name':'swat',
         'alias':'swat',

@@ -204,6 +204,10 @@ void runTest( int argc, char** argv)
 	CHKERR(errcode, "Failed to create buffer!");
     LSB_Rec(0);
 
+    printf("Working kernel memory: %fKiB\n",
+            (((float)(sizeof(int) * size+
+              sizeof(int) * size))/1024.0));
+
     LSB_Set_Rparam_string("region", "device_side_h2d_copy");
     LSB_Res();
 	errcode = clEnqueueWriteBuffer(commands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
@@ -299,7 +303,7 @@ void runTest( int argc, char** argv)
 
     LSB_Finalize();
 
-//#ifdef TRACE
+#ifdef TRACE
 
 	printf("print traceback value GPU:\n");
 
@@ -349,7 +353,7 @@ void runTest( int argc, char** argv)
 	}
 	printf("\n");
 
-//#endif
+#endif
 
 	clReleaseMemObject(referrence_cuda);
 	clReleaseMemObject(matrix_cuda);
