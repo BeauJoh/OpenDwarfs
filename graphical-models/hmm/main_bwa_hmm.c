@@ -1131,6 +1131,18 @@ float run_hmm_bwa(  Hmm *hmm,
 	ones_s_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nsymbols, NULL, NULL);
     LSB_Rec(0);
 
+    printf("Working kernel memory: %fKiB\n",
+            ((sizeof(float) * nstates * nstates+
+              sizeof(float) * nstates * nsymbols+
+              sizeof(float) * nstates+
+              sizeof(float) * nstates+
+              sizeof(float) * nstates+
+              sizeof(float) * nstates+
+              sizeof(float) * nstates * nstates+
+              sizeof(float) * nstates+
+              sizeof(float) * nstates+
+              sizeof(float) * nsymbols)/1024.0));
+
 	CHECK_NULL_ERROR( a_d, "Error creating buffer for a_d");
 	CHECK_NULL_ERROR( b_d, "Error creating buffer for  b_d");
 	CHECK_NULL_ERROR( pi_d, "Error creating buffer for  pi_d");
