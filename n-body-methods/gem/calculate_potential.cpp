@@ -33,6 +33,7 @@
 #include "../../include/portable_memory.h"
 
 #define AOCL_ALIGNMENT 64
+#define MIN_TIME_SEC 2
 
 #ifdef __FPGA__
     #include "cl_ext.h"
@@ -151,6 +152,8 @@ void calc_potential_single_step(residue *residues,
     LSB_Init("gem", 0);
     LSB_Set_Rparam_int("number_of_residues",nres);
     LSB_Set_Rparam_int("number_of_vertices",nvert);
+    LSB_Set_Rparam_int("repeats_to_two_seconds",0);
+
 	/////////////////////////////////////////////////////////////////
 	// Load CL file, build CL program object, create CL kernel object
 	/////////////////////////////////////////////////////////////////
@@ -381,79 +384,7 @@ void calc_potential_single_step(residue *residues,
 	vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[14]);
 	atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_int)*nres,      NULL, &err[15]);
 	atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_int)*nres,      NULL, &err[16]);
-    
-    LSB_Rec(0);
-    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
-    LSB_Res();
-	clEnqueueWriteBuffer ( commands, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Address Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	clEnqueueWriteBuffer ( commands, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Length Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-
+   
     printf("Working kernel memory: %fKiB\n",
             ((sizeof(cl_float)*nres)+
              (sizeof(cl_float)*nres)+
@@ -473,133 +404,218 @@ void calc_potential_single_step(residue *residues,
              (sizeof(cl_int)*nres)+
              (sizeof(cl_int)*nres))/1024.0);
 
-    LSB_Rec(0);
-    LSB_Set_Rparam_string("region", "setting_kernel_arguments");
-    LSB_Res();
 
-	// clSetKernelArg( kernel, 0, sizeof(cl_mem), (void *)&outputBuffer);
-	clSetKernelArg( kernel, 0, sizeof(cl_int), (void *)&    nres);// int nres,
-	clSetKernelArg( kernel, 1, sizeof(cl_int), (void *)&    nvert);// int nvert,
-	clSetKernelArg( kernel, 2, sizeof(cl_float), (void *)&  A);// float A,
-	clSetKernelArg( kernel, 3, sizeof(cl_float), (void *)&  proj_len);// float proj_len,
-	clSetKernelArg( kernel, 4, sizeof(cl_float), (void *)&  diel_int);// float diel_int,
-	clSetKernelArg( kernel, 5, sizeof(cl_float), (void *)&  diel_ext);// float diel_ext,
-	clSetKernelArg( kernel, 6, sizeof(cl_float), (void *)&  sal);// float sal,
-	clSetKernelArg( kernel, 7, sizeof(cl_float), (void *)&  ion_exc_rad);// float ion_exc_rad,
-	clSetKernelArg( kernel, 8, sizeof(cl_int), (void *)&    phiType);// int phiType,
-	clSetKernelArg( kernel, 10, sizeof(cl_int), (void *)&    step_size);// int step_size,
-	clSetKernelArg( kernel, 11, sizeof(cl_mem), (void *)&    atom_addrs_s);// __global unsigned int * atom_addrs,
-	clSetKernelArg( kernel, 12, sizeof(cl_mem), (void *)&    atom_lengths_s);// __global unsigned int * atom_lengths,
-	clSetKernelArg( kernel, 13, sizeof(cl_float), (void *)&  r);// float r,
-	clSetKernelArg( kernel, 14, sizeof(cl_float), (void *)&  r0);// float r0,
-	clSetKernelArg( kernel, 15, sizeof(cl_float), (void *)&  rprime);// float rprime,
-	clSetKernelArg( kernel, 16, sizeof(cl_mem), (void *)&    res_c_s   );//__global float *res_c_s
-	clSetKernelArg( kernel, 17, sizeof(cl_mem), (void *)&    res_x_s   );//__global float *res_x_s
-	clSetKernelArg( kernel, 18, sizeof(cl_mem), (void *)&    res_y_s   );//__global float *res_y_s
-	clSetKernelArg( kernel, 19, sizeof(cl_mem), (void *)&    res_z_s  );//__global float *res_z_s,
-	clSetKernelArg( kernel, 20, sizeof(cl_mem), (void *)&    at_c_s    );//__global float *at_c_s
-	clSetKernelArg( kernel, 21, sizeof(cl_mem), (void *)&    at_x_s    );//__global float *at_x_s
-	clSetKernelArg( kernel, 22, sizeof(cl_mem), (void *)&    at_y_s    );//__global float *at_y_s
-	clSetKernelArg( kernel, 23, sizeof(cl_mem), (void *)&    at_z_s   );//__global float *at_z_s,
-	clSetKernelArg( kernel, 24, sizeof(cl_mem), (void *)&    vert_c_s  );//__global float *vert_c_s
-	clSetKernelArg( kernel, 25, sizeof(cl_mem), (void *)&    vert_x_s  );//__global float *vert_x_s
-	clSetKernelArg( kernel, 26, sizeof(cl_mem), (void *)&    vert_y_s  );//__global float *vert_y_s
-	clSetKernelArg( kernel, 27, sizeof(cl_mem), (void *)&    vert_z_s );//__global float *vert_z_s,
-	clSetKernelArg( kernel, 28, sizeof(cl_mem), (void *)&    vert_x_p_s);//__global float *vert_x_p_s
-	clSetKernelArg( kernel, 29, sizeof(cl_mem), (void *)&    vert_y_p_s);//__global float *vert_y_p_s
-	clSetKernelArg( kernel, 30, sizeof(cl_mem), (void *)&    vert_z_p_s);//__global float *vert_z_p_s)
+    int lsb_timing_repeats = 0;
+    struct timeval startTime, currentTime, elapsedTime;
+    gettimeofday(&startTime, NULL);
+    do {
+        eye = *i;
+        LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-	size_t maxWorkItemSizes[3];
-	clGetDeviceInfo(
-			device_id, 
-			CL_DEVICE_MAX_WORK_ITEM_SIZES, 
-			sizeof(size_t)*3,
-			(void*)maxWorkItemSizes,
-			NULL);
-
-	while(BLOCK_DIM_X*BLOCK_DIM_X>maxWorkItemSizes[0])
-		BLOCK_DIM_X = BLOCK_DIM_X/2;
-	BLOCK_DIM_Y = BLOCK_DIM_X;
-
-
-	//cl_int   status;
-	cl_uint maxDims;
-	size_t globalThreads[2] = { BLOCK_DIM_X * BLOCK_DIM_Y, BLOCKS };
-	size_t localThreads[2]  = { BLOCK_DIM_X * BLOCK_DIM_Y, 1 };
-	size_t maxWorkGroupSize;
-
-
-	clGetDeviceInfo(
-			device_id, 
-			CL_DEVICE_MAX_WORK_GROUP_SIZE, 
-			sizeof(size_t), 
-			(void*)&maxWorkGroupSize, 
-			NULL);
-
-
-	clGetDeviceInfo(
-			device_id, 
-			CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 
-			sizeof(cl_uint), 
-			(void*)&maxDims, 
-			NULL);
-
-
-	if(globalThreads[0] > maxWorkGroupSize || 
-			localThreads[0] > maxWorkItemSizes[0])
-	{
-		std::cout<<"Unsupported: Device does not support requested number of work items."<<std::endl;
-		std::cout<<"workgroup:"<< maxWorkGroupSize<<std::endl;
-		std::cout<<"workitem :"<< maxWorkItemSizes[0]<<std::endl;
-		return;
-	}
-
-    LSB_Rec(0);
-    LSB_Set_Rparam_string("region", "gem_kernel");
-
-	for (;  eye/*+((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS)*/ < bound; eye+=((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS))
-		//for(it=0; it<3; it++)
-	{
+        LSB_Rec(0);
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
         LSB_Res();
-		clSetKernelArg( kernel, 9, sizeof(cl_int), (void *)&    eye);// int eye,
-		fprintf(stdout,"finished first %d of %d\n", eye, nvert);
-		/* copy the vert data of the current block to device */
-		status = clEnqueueNDRangeKernel(
-				commands,
-				kernel,
-				2,
-				NULL,
-				globalThreads,
-				localThreads,
-				0,
-				NULL,
-				&ocdTempEvent);
-		if(status != CL_SUCCESS) 
-		{ 
-			std::cout<<
-				"Error: Enqueueing kernel onto command queue. \
-				(clEnqueueNDRangeKernel): "<< status << std::endl;
-					return;
-		}
+        clEnqueueWriteBuffer ( commands, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Address Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        clEnqueueWriteBuffer ( commands, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Length Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 
-		/* wait for the kernel call to finish execution */
-		status = clWaitForEvents(1, &ocdTempEvent);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "GEM Kernel", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		if(status != CL_SUCCESS) 
-		{ 
-				std::cout<<
-					"Error: Waiting for kernel run to finish. \
-					(clWaitForEvents)\n";
-				return;
-		}
+                LSB_Rec(0);
+        LSB_Set_Rparam_string("region", "setting_kernel_arguments");
+        LSB_Res();
 
-		if(eye + step_size > bound)
-			step_size = bound - eye;
+        // clSetKernelArg( kernel, 0, sizeof(cl_mem), (void *)&outputBuffer);
+        clSetKernelArg( kernel, 0, sizeof(cl_int), (void *)&    nres);// int nres,
+        clSetKernelArg( kernel, 1, sizeof(cl_int), (void *)&    nvert);// int nvert,
+        clSetKernelArg( kernel, 2, sizeof(cl_float), (void *)&  A);// float A,
+        clSetKernelArg( kernel, 3, sizeof(cl_float), (void *)&  proj_len);// float proj_len,
+        clSetKernelArg( kernel, 4, sizeof(cl_float), (void *)&  diel_int);// float diel_int,
+        clSetKernelArg( kernel, 5, sizeof(cl_float), (void *)&  diel_ext);// float diel_ext,
+        clSetKernelArg( kernel, 6, sizeof(cl_float), (void *)&  sal);// float sal,
+        clSetKernelArg( kernel, 7, sizeof(cl_float), (void *)&  ion_exc_rad);// float ion_exc_rad,
+        clSetKernelArg( kernel, 8, sizeof(cl_int), (void *)&    phiType);// int phiType,
+        clSetKernelArg( kernel, 10, sizeof(cl_int), (void *)&    step_size);// int step_size,
+        clSetKernelArg( kernel, 11, sizeof(cl_mem), (void *)&    atom_addrs_s);// __global unsigned int * atom_addrs,
+        clSetKernelArg( kernel, 12, sizeof(cl_mem), (void *)&    atom_lengths_s);// __global unsigned int * atom_lengths,
+        clSetKernelArg( kernel, 13, sizeof(cl_float), (void *)&  r);// float r,
+        clSetKernelArg( kernel, 14, sizeof(cl_float), (void *)&  r0);// float r0,
+        clSetKernelArg( kernel, 15, sizeof(cl_float), (void *)&  rprime);// float rprime,
+        clSetKernelArg( kernel, 16, sizeof(cl_mem), (void *)&    res_c_s   );//__global float *res_c_s
+        clSetKernelArg( kernel, 17, sizeof(cl_mem), (void *)&    res_x_s   );//__global float *res_x_s
+        clSetKernelArg( kernel, 18, sizeof(cl_mem), (void *)&    res_y_s   );//__global float *res_y_s
+        clSetKernelArg( kernel, 19, sizeof(cl_mem), (void *)&    res_z_s  );//__global float *res_z_s,
+        clSetKernelArg( kernel, 20, sizeof(cl_mem), (void *)&    at_c_s    );//__global float *at_c_s
+        clSetKernelArg( kernel, 21, sizeof(cl_mem), (void *)&    at_x_s    );//__global float *at_x_s
+        clSetKernelArg( kernel, 22, sizeof(cl_mem), (void *)&    at_y_s    );//__global float *at_y_s
+        clSetKernelArg( kernel, 23, sizeof(cl_mem), (void *)&    at_z_s   );//__global float *at_z_s,
+        clSetKernelArg( kernel, 24, sizeof(cl_mem), (void *)&    vert_c_s  );//__global float *vert_c_s
+        clSetKernelArg( kernel, 25, sizeof(cl_mem), (void *)&    vert_x_s  );//__global float *vert_x_s
+        clSetKernelArg( kernel, 26, sizeof(cl_mem), (void *)&    vert_y_s  );//__global float *vert_y_s
+        clSetKernelArg( kernel, 27, sizeof(cl_mem), (void *)&    vert_z_s );//__global float *vert_z_s,
+        clSetKernelArg( kernel, 28, sizeof(cl_mem), (void *)&    vert_x_p_s);//__global float *vert_x_p_s
+        clSetKernelArg( kernel, 29, sizeof(cl_mem), (void *)&    vert_y_p_s);//__global float *vert_y_p_s
+        clSetKernelArg( kernel, 30, sizeof(cl_mem), (void *)&    vert_z_p_s);//__global float *vert_z_p_s)
 
-        LSB_Rec(eye);
-		/* copy back the calculation result */
-	}
+        size_t maxWorkItemSizes[3];
+        clGetDeviceInfo(
+                device_id, 
+                CL_DEVICE_MAX_WORK_ITEM_SIZES, 
+                sizeof(size_t)*3,
+                (void*)maxWorkItemSizes,
+                NULL);
+
+        while(BLOCK_DIM_X*BLOCK_DIM_X>maxWorkItemSizes[0])
+            BLOCK_DIM_X = BLOCK_DIM_X/2;
+        BLOCK_DIM_Y = BLOCK_DIM_X;
+
+
+        //cl_int   status;
+        cl_uint maxDims;
+        size_t globalThreads[2] = { BLOCK_DIM_X * BLOCK_DIM_Y, BLOCKS };
+        size_t localThreads[2]  = { BLOCK_DIM_X * BLOCK_DIM_Y, 1 };
+        size_t maxWorkGroupSize;
+
+
+        clGetDeviceInfo(
+                device_id, 
+                CL_DEVICE_MAX_WORK_GROUP_SIZE, 
+                sizeof(size_t), 
+                (void*)&maxWorkGroupSize, 
+                NULL);
+
+
+        clGetDeviceInfo(
+                device_id, 
+                CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 
+                sizeof(cl_uint), 
+                (void*)&maxDims, 
+                NULL);
+
+
+        if(globalThreads[0] > maxWorkGroupSize || 
+                localThreads[0] > maxWorkItemSizes[0])
+        {
+            std::cout<<"Unsupported: Device does not support requested number of work items."<<std::endl;
+            std::cout<<"workgroup:"<< maxWorkGroupSize<<std::endl;
+            std::cout<<"workitem :"<< maxWorkItemSizes[0]<<std::endl;
+            return;
+        }
+
+        LSB_Rec(0);
+        LSB_Set_Rparam_string("region", "gem_kernel");
+
+        for (;  eye/*+((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS)*/ < bound; eye+=((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS))
+            //for(it=0; it<3; it++)
+        {
+            LSB_Res();
+            clSetKernelArg( kernel, 9, sizeof(cl_int), (void *)&    eye);// int eye,
+            fprintf(stdout,"finished first %d of %d\n", eye, nvert);
+            /* copy the vert data of the current block to device */
+            status = clEnqueueNDRangeKernel(
+                    commands,
+                    kernel,
+                    2,
+                    NULL,
+                    globalThreads,
+                    localThreads,
+                    0,
+                    NULL,
+                    &ocdTempEvent);
+            if(status != CL_SUCCESS) 
+            { 
+                std::cout<<
+                    "Error: Enqueueing kernel onto command queue. \
+                    (clEnqueueNDRangeKernel): "<< status << std::endl;
+                        return;
+            }
+
+            /* wait for the kernel call to finish execution */
+            status = clWaitForEvents(1, &ocdTempEvent);
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "GEM Kernel", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            if(status != CL_SUCCESS) 
+            { 
+                    std::cout<<
+                        "Error: Waiting for kernel run to finish. \
+                        (clWaitForEvents)\n";
+                    return;
+            }
+
+            if(eye + step_size > bound)
+                step_size = bound - eye;
+
+            LSB_Rec(eye);
+            /* copy back the calculation result */
+        }
+
+        lsb_timing_repeats++;
+        gettimeofday(&currentTime, NULL);
+        timersub(&currentTime, &startTime, &elapsedTime);
+    } while (elapsedTime.tv_sec < MIN_TIME_SEC);
 
     LSB_Set_Rparam_string("region", "device_side_d2h_copy");
     LSB_Res();
