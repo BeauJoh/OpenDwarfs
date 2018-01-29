@@ -184,6 +184,8 @@ int setup(int argc, char **argv) {
 	if (filename == 0 && generateFeaturespace == false) usage(argv[0]);
 
     LSB_Init("kmeans", 0);
+    LSB_Set_Rparam_int("iteration_number_hint_until_convergence", 0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
     LSB_Set_Rparam_string("region", "host_side_setup");
     LSB_Res();
 

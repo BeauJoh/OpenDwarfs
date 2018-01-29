@@ -221,17 +221,18 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &membership_d);
     errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &clusters_d);
     CHKERR(errcode, "Failed to set kernel arg!");
- 
-	/* execute the kernel */
-#ifndef PROFILE_OUTER_LOOP
-    LSB_Set_Rparam_string("region", "kmeans_kernel");
-    LSB_Res();
-#endif
+
     if (cluster_invokations == 0){
         printf("Working kernel memory: %fKiB\n",
                 (working_kernel_memory)/1024.0);
     }
 
+	/* execute the kernel */
+#ifndef PROFILE_OUTER_LOOP
+    LSB_Set_Rparam_string("region", "kmeans_kernel");
+    LSB_Res();
+#endif
+    
     errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
     CHKERR(errcode, "Failed to enqueue kernel!");
     errcode = clFinish(commands);

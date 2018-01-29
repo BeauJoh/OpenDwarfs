@@ -117,7 +117,12 @@ nqueens = {'name':'nqueens',
 hmm = {'name':'bwa_hmm',
        'alias':'bwa_hmm',
        'default':'-n 30 -v n',
+       'tiny':'-s 8 -v s',#31.44KiB
+       'small':'-s 900 -v s',#243.98KiB
+       'medium':'-n 1012 -s 1024 -v n',#8032.76KiB
+       'large':'-n 2048 -s 2048 -v n',#32832.01KiB
        'full name':'Baum-Welch Algorithm, Hidden Markov Model'}
+#TODO: Test before squash: oclgrind --workload-characterisation ./bwa_hmm -p 0 -d 0 -t 0 -- -n 2048 -s 2048 -v n > log.txt
 tdm = {'name':'tdm',
        'alias':'tdm',
        'default':'../test/finite-state-machine/tdm/sim-64-size200.csv ../test/finite-state-machine/tdm/ivl.txt ../test/finite-state-machine/tdm/30-episodes.txt 128',

@@ -351,7 +351,7 @@ int main(int argc, char ** argv)
 	mutexMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int), 0, &err);
 	CHKERR(err, "create mutex mem error!");
     LSB_Rec(0);
-
+/*
     printf("Working kernel memory: %fKiB\n",
             ((sizeof(cl_char) * length+
               sizeof(cl_char) * length+
@@ -367,7 +367,7 @@ int main(int argc, char ** argv)
               sizeof(MAX_INFO) * mfThreadNum+
               sizeof(cl_float) * nblosumWidth * nblosumHeight+
               sizeof(cl_int))/1024.0));
-
+*/
 
 	//copy the scoring matrix to the constant memory
 	//copyScoringMatrixToConstant();

@@ -139,19 +139,21 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 		n++;
     }
 
-    /* allocate space for and initialize new_centers_len and new_centers */
-    new_centers_len = (int*) calloc(nclusters, sizeof(int));
-
-    new_centers    = (float**) malloc(nclusters *            sizeof(float*));
-    new_centers[0] = (float*)  calloc(nclusters * nfeatures, sizeof(float));
-    for (i=1; i<nclusters; i++)
-        new_centers[i] = new_centers[i-1] + nfeatures;
-
+    int lsb_timing_repeats = 0;
 	struct timeval startTime, currentTime, elapsedTime;
 	gettimeofday(&startTime, NULL);
 	do {
+        LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-		/* initialize the membership to -1 for all */
+        /* allocate space for and initialize new_centers_len and new_centers */
+        new_centers_len = (int*) calloc(nclusters, sizeof(int));
+    
+        new_centers    = (float**) malloc(nclusters *            sizeof(float*));
+        new_centers[0] = (float*)  calloc(nclusters * nfeatures, sizeof(float));
+        for (i=1; i<nclusters; i++)
+            new_centers[i] = new_centers[i-1] + nfeatures;
+
+        /* initialize the membership to -1 for all */
 		for (i = 0; i < npoints; i++)
 			membership[i] = -1;
 		LSB_Rec(0);
@@ -174,7 +176,7 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 				new_centers		/* sum of points in each cluster */
 			);
 #ifdef PROFILE_OUTER_LOOP
-			LSB_Rec(0);
+			LSB_Rec(loop);
 #endif
 			/* replace old cluster centers with new_centers */
 			/* CPU side of reduction */
@@ -188,14 +190,15 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 			}
 			c++;
 		} while ((delta > threshold) && (loop++ < 500));	/* makes sure loop terminates */
-
+        free(new_centers[0]);
+        free(new_centers);
+        free(new_centers_len);
+   
+        c=0;
+        lsb_timing_repeats++;
 		gettimeofday(&currentTime, NULL);
 		timersub(&currentTime, &startTime, &elapsedTime);
 	} while (elapsedTime.tv_sec < MIN_TIME_SEC);
-
-    free(new_centers[0]);
-    free(new_centers);
-    free(new_centers_len);
 
     return clusters;
 }
