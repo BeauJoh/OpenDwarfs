@@ -30,6 +30,8 @@
 #include "../../../include/lsb.h"
 #define BENCHMARK_IO 0
 
+#define MIN_TIME_SEC 2
+
 #if USE_MKL
 // Run complex to complex X[2*N] to Y[2*N]. Return total time (s).
 double runMKL(size_t n,const float * x,float * y,double maxBenchmarkTime)
@@ -404,6 +406,7 @@ bool isPowerOfTwo(unsigned int x)
 int benchmark(int N){
     ocd_initCL();
     LSB_Init("openclfft", 0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
     LSB_Set_Rparam_int("signal_length",N);
     std::string msg;
     LSB_Set_Rparam_string("region", "host_side_setup");
@@ -418,13 +421,25 @@ int benchmark(int N){
     printf("Working kernel memory: %fKiB\n",(sizeof(float)*N*2*2)/1024.0);
     LSB_Rec(0);
 
-    int success = runCLFFT(clfft,N,(void*)x,(void*)y);
+    int return_code = 0;
+    int lsb_timing_repeats = 0;
+    struct timeval startTime, currentTime, elapsedTime;
+    gettimeofday(&startTime, NULL);
+    do {
+        LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
+
+        return_code &= runCLFFT(clfft,N,(void*)x,(void*)y);
+
+        lsb_timing_repeats++;
+        gettimeofday(&currentTime, NULL);
+        timersub(&currentTime, &startTime, &elapsedTime);
+    } while (elapsedTime.tv_sec < MIN_TIME_SEC);
+
     //dumpRealArray<float>((size_t)N,(float*)y);
     free(x);//delete x;
     free(y);//delete y;/
     LSB_Finalize();
-
-    return(success);
+    return(return_code);
 }
 
 int main(int argc, char**argv)
