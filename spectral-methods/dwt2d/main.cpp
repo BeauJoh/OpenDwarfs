@@ -23,6 +23,7 @@
 //using namespace std;
 
 #define THREADS 256 
+#define MIN_TIME_SEC 2
 
 struct dwt {
     char * srcFilename;
@@ -573,12 +574,23 @@ void processDWT(struct dwt *d, int forward, int writeVisual)
         rgbToComponents(cl_c_r, cl_c_g, cl_c_b, d->srcImg, d->pixWidth, d->pixHeight);
 
         printf("Working kernel memory: %fKiB\n",(componentSize*2)/1024.0);
-        //Compute DWT and always store int file
-        nStage2dDWT(cl_c_r, cl_c_r_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
-        nStage2dDWT(cl_c_g, cl_c_g_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
-        nStage2dDWT(cl_c_b, cl_c_b_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
+
+        int lsb_timing_repeats = 0;
+        struct timeval startTime, currentTime, elapsedTime;
+        gettimeofday(&startTime, NULL);
+        do {
+            LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
+
+            //Compute DWT and always store int file
+            nStage2dDWT(cl_c_r, cl_c_r_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
+            nStage2dDWT(cl_c_g, cl_c_g_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
+            nStage2dDWT(cl_c_b, cl_c_b_out, cl_backup, d->pixWidth, d->pixHeight, d->dwtLvls, forward);
         
-        
+            lsb_timing_repeats++;
+            gettimeofday(&currentTime, NULL);
+            timersub(&currentTime, &startTime, &elapsedTime);
+        } while (elapsedTime.tv_sec < MIN_TIME_SEC);
+
         // ---------test----------
 /*      T *h_r_out=(T*)malloc(componentSize);
 		errNum = clEnqueueReadBuffer(commandQueue, cl_c_g_out, CL_TRUE, 0, componentSize, h_r_out, 0, NULL, NULL); 
@@ -819,6 +831,8 @@ int main(int argc, char **argv)
 	
     ocd_initCL();
     LSB_Init("dwt2d",0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
+    LSB_Set_Rparam_int("dwt_level", 0);
 
 	//
 	// device init
