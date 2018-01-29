@@ -65,10 +65,12 @@
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
+#include <sys/time.h>
 
 #include "kmeans.h"
 
 #define RANDOM_MAX 2147483647
+#define MIN_TIME_SEC 2
 
 extern double wtime(void);
 
@@ -137,10 +139,6 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
 		n++;
     }
 
-	/* initialize the membership to -1 for all */
-    for (i=0; i < npoints; i++)
-	  membership[i] = -1;
-
     /* allocate space for and initialize new_centers_len and new_centers */
     new_centers_len = (int*) calloc(nclusters, sizeof(int));
 
@@ -148,40 +146,53 @@ float** kmeans_clustering(float **feature,    /* in: [npoints][nfeatures] */
     new_centers[0] = (float*)  calloc(nclusters * nfeatures, sizeof(float));
     for (i=1; i<nclusters; i++)
         new_centers[i] = new_centers[i-1] + nfeatures;
-  LSB_Rec(0);
-	/* iterate until convergence */
+
+	struct timeval startTime, currentTime, elapsedTime;
+	gettimeofday(&startTime, NULL);
 	do {
-        LSB_Set_Rparam_int("iteration_number_hint_until_convergence", c);
-        delta = 0.0;
-		// CUDA
+
+		/* initialize the membership to -1 for all */
+		for (i = 0; i < npoints; i++)
+			membership[i] = -1;
+		LSB_Rec(0);
+		/* iterate until convergence */
+		do {
+			LSB_Set_Rparam_int("iteration_number_hint_until_convergence", c);
+			delta = 0.0;
+			// CUDA
 #ifdef PROFILE_OUTER_LOOP
-        LSB_Set_Rparam_string("region", "kmeansCuda");
-        LSB_Res();
+			LSB_Set_Rparam_string("region", "kmeansCuda");
+			LSB_Res();
 #endif
-		delta = (float) kmeansCuda(feature,			/* in: [npoints][nfeatures] */
-								   nfeatures,		/* number of attributes for each point */
-								   npoints,			/* number of data points */
-								   nclusters,		/* number of clusters */
-								   membership,		/* which cluster the point belongs to */
-								   clusters,		/* out: [nclusters][nfeatures] */
-								   new_centers_len,	/* out: number of points in each cluster */
-								   new_centers		/* sum of points in each cluster */
-								   );
+			delta = (float)kmeansCuda(feature,			/* in: [npoints][nfeatures] */
+				nfeatures,		/* number of attributes for each point */
+				npoints,			/* number of data points */
+				nclusters,		/* number of clusters */
+				membership,		/* which cluster the point belongs to */
+				clusters,		/* out: [nclusters][nfeatures] */
+				new_centers_len,	/* out: number of points in each cluster */
+				new_centers		/* sum of points in each cluster */
+			);
 #ifdef PROFILE_OUTER_LOOP
-        LSB_Rec(0);
+			LSB_Rec(0);
 #endif
-		/* replace old cluster centers with new_centers */
-		/* CPU side of reduction */
-		for (i=0; i<nclusters; i++) {
-			for (j=0; j<nfeatures; j++) {
-				if (new_centers_len[i] > 0)
-					clusters[i][j] = new_centers[i][j] / new_centers_len[i];	/* take average i.e. sum/n */
-				new_centers[i][j] = 0.0;	/* set back to 0 */
+			/* replace old cluster centers with new_centers */
+			/* CPU side of reduction */
+			for (i = 0; i < nclusters; i++) {
+				for (j = 0; j < nfeatures; j++) {
+					if (new_centers_len[i] > 0)
+						clusters[i][j] = new_centers[i][j] / new_centers_len[i];	/* take average i.e. sum/n */
+					new_centers[i][j] = 0.0;	/* set back to 0 */
+				}
+				new_centers_len[i] = 0;			/* set back to 0 */
 			}
-			new_centers_len[i] = 0;			/* set back to 0 */
-		}	 
-		c++;
-    } while ((delta > threshold) && (loop++ < 500));	/* makes sure loop terminates */
+			c++;
+		} while ((delta > threshold) && (loop++ < 500));	/* makes sure loop terminates */
+
+		gettimeofday(&currentTime, NULL);
+		timersub(&currentTime, &startTime, &elapsedTime);
+	} while (elapsedTime.tv_sec < MIN_TIME_SEC);
+
     free(new_centers[0]);
     free(new_centers);
     free(new_centers_len);
