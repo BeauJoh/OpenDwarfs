@@ -30,6 +30,7 @@
 #define END_GTOD_TIMER { \
 	gettimeofday(tv,NULL); \
 	end_time = 1000 * (tv->tv_sec*1000000L + tv->tv_usec); }
+#define MIN_TIME_SEC 2
 
 static struct option long_options[] = {
 	/* name, has_arg, flag, val */
@@ -177,6 +178,10 @@ int main(int argc, char** argv)
 	ocd_check_requirements(NULL);
 	ocd_initCL();
     LSB_Init("csr", 0);
+    LSB_Set_Rparam_int("number_of_matrices",0);
+    LSB_Set_Rparam_int("workgroup_size",0);
+    LSB_Set_Rparam_int("execution_number",0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds",0);
 
     LSB_Set_Rparam_string("region", "host_side_setup");
     LSB_Res();
@@ -417,52 +422,64 @@ int main(int argc, char** argv)
                                  sizeof(float)*csr[k].num_nonzeros+
                                  sizeof(float)*csr[k].num_cols+
                                  sizeof(float)*csr[k].num_rows)/1024.0);
-						/* Write our data set into the input array in device memory */
-						err = clEnqueueWriteBuffer(write_queue, csr_ap[k], CL_FALSE, 0, sizeof(unsigned int)*csr[k].num_rows+4, csr[k].Ap, 0, NULL, &ap_write[k]);
-						CHKERR(err, "Failed to write to source array!");
 
-						err = clEnqueueWriteBuffer(write_queue, csr_aj[k], CL_FALSE, 0, sizeof(unsigned int)*csr[k].num_nonzeros, csr[k].Aj, 0, NULL, &aj_write[k]);
-						CHKERR(err, "Failed to write to source array!");
+                        int lsb_timing_repeats = 0;
+                        struct timeval startTime, currentTime, elapsedTime;
+                        gettimeofday(&startTime, NULL);
+                        do {
+                            LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-						err = clEnqueueWriteBuffer(write_queue, csr_ax[k], CL_FALSE, 0, sizeof(float)*csr[k].num_nonzeros, csr[k].Ax, 0, NULL, &ax_write[k]);
-						CHKERR(err, "Failed to write to source array!");
+                            /* Write our data set into the input array in device memory */
+                            err = clEnqueueWriteBuffer(write_queue, csr_ap[k], CL_FALSE, 0, sizeof(unsigned int)*csr[k].num_rows+4, csr[k].Ap, 0, NULL, &ap_write[k]);
+                            CHKERR(err, "Failed to write to source array!");
 
-						err = clEnqueueWriteBuffer(write_queue, x_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_cols, x_host, 0, NULL, &x_loc_write[k]);
-						CHKERR(err, "Failed to write to source array!");
+                            err = clEnqueueWriteBuffer(write_queue, csr_aj[k], CL_FALSE, 0, sizeof(unsigned int)*csr[k].num_nonzeros, csr[k].Aj, 0, NULL, &aj_write[k]);
+                            CHKERR(err, "Failed to write to source array!");
 
-						err = clEnqueueWriteBuffer(write_queue, y_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_rows, y_host, 0, NULL, &y_loc_write[k]);
-						CHKERR(err, "Failed to write to source array!");
-                        clFinish(write_queue);
-                        LSB_Rec(i);
+                            err = clEnqueueWriteBuffer(write_queue, csr_ax[k], CL_FALSE, 0, sizeof(float)*csr[k].num_nonzeros, csr[k].Ax, 0, NULL, &ax_write[k]);
+                            CHKERR(err, "Failed to write to source array!");
 
-                        LSB_Set_Rparam_string("region","setting_csr_kernel_arguments");
-                        LSB_Res();
-						/* Set the arguments to our compute kernel */
-						global_size = csr[k].num_rows;
-						err = clSetKernelArg(kernel, 0, sizeof(int), &global_size);
-						err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &csr_ap[k]);
-						err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &csr_aj[k]);
-						err |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &csr_ax[k]);
-						err |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &x_loc[k]);
-						err |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &y_loc[k]);
-						CHKERR(err, "Failed to set kernel arguments!");
-                        LSB_Rec(i);
+                            err = clEnqueueWriteBuffer(write_queue, x_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_cols, x_host, 0, NULL, &x_loc_write[k]);
+                            CHKERR(err, "Failed to write to source array!");
 
-                        LSB_Set_Rparam_string("region", "csr_kernel");
-                        LSB_Res();
-						/* Enqueue Kernel */
-						err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &wg_sizes[ii], 1, &y_loc_write[k], &kernel_exec[k]);
-						CHKERR(err, "Failed to execute kernel!");
-                        clFinish(commands);
-                        LSB_Rec(i);
+                            err = clEnqueueWriteBuffer(write_queue, y_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_rows, y_host, 0, NULL, &y_loc_write[k]);
+                            CHKERR(err, "Failed to write to source array!");
+                            clFinish(write_queue);
+                            LSB_Rec(i);
 
-                        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
-                        LSB_Res();
-						/* Read back the results from the device to verify the output */
-						err = clEnqueueReadBuffer(read_queue, y_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_rows, device_out[k], 1, &kernel_exec[k], &y_read[k]);
-                        clFinish(read_queue);
-						CHKERR(err, "Failed to read output array!");
-                        LSB_Rec(i);
+                            LSB_Set_Rparam_string("region","setting_csr_kernel_arguments");
+                            LSB_Res();
+                            /* Set the arguments to our compute kernel */
+                            global_size = csr[k].num_rows;
+                            err = clSetKernelArg(kernel, 0, sizeof(int), &global_size);
+                            err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &csr_ap[k]);
+                            err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &csr_aj[k]);
+                            err |= clSetKernelArg(kernel, 3, sizeof(cl_mem), &csr_ax[k]);
+                            err |= clSetKernelArg(kernel, 4, sizeof(cl_mem), &x_loc[k]);
+                            err |= clSetKernelArg(kernel, 5, sizeof(cl_mem), &y_loc[k]);
+                            CHKERR(err, "Failed to set kernel arguments!");
+                            LSB_Rec(i);
+
+                            LSB_Set_Rparam_string("region", "csr_kernel");
+                            LSB_Res();
+                            /* Enqueue Kernel */
+                            err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &wg_sizes[ii], 1, &y_loc_write[k], &kernel_exec[k]);
+                            CHKERR(err, "Failed to execute kernel!");
+                            clFinish(commands);
+                            LSB_Rec(i);
+
+                            LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+                            LSB_Res();
+                            /* Read back the results from the device to verify the output */
+                            err = clEnqueueReadBuffer(read_queue, y_loc[k], CL_FALSE, 0, sizeof(float)*csr[k].num_rows, device_out[k], 1, &kernel_exec[k], &y_read[k]);
+                            clFinish(read_queue);
+                            CHKERR(err, "Failed to read output array!");
+                            LSB_Rec(i);
+
+                            lsb_timing_repeats++;
+                            gettimeofday(&currentTime, NULL);
+                            timersub(&currentTime, &startTime, &elapsedTime);
+                        } while (elapsedTime.tv_sec < MIN_TIME_SEC);
 					}
 
 #ifdef ENABLE_TIMER
