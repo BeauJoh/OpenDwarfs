@@ -11,6 +11,7 @@
 
 //#define OUTPUT
 #define AOCL_ALIGNMENT 64
+#define MIN_TIME_SEC 2
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
@@ -49,9 +50,10 @@ main( int argc, char** argv)
 runTest( int argc, char** argv) 
 {
 	int rows, cols, size_I, size_R, niter = 10, iter;
-	float *I, *J, lambda, q0sqr, sum, sum2, tmp, meanROI,varROI ;
+	float *I, *J, *O, lambda, q0sqr, sum, sum2, tmp, meanROI,varROI ;
 	int i, j, k;
     LSB_Init("srad", 0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
 
 #ifdef CPU
 	float Jc, G2, L, num, den, qsqr;
@@ -175,6 +177,7 @@ runTest( int argc, char** argv)
 
 	I = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
 	J = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
+    O = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
 	c  = (int*) memalign(AOCL_ALIGNMENT, sizeof(int)*size_I) ;
 
       /*  I = (float*) malloc(sizeof(float)*size_I );
@@ -313,87 +316,96 @@ runTest( int argc, char** argv)
 
 #endif // CPU
 
-
-#ifdef GPU
-
-		//Currently the input size must be divided by 16 - the block size
-		int block_x = cols/BLOCK_SIZE ;
-		int block_y = rows/BLOCK_SIZE ;
-
-		size_t localWorkSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
-		size_t globalWorkSize[2] = {block_x*localWorkSize[0], block_y*localWorkSize[1]};
-
-        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
-        LSB_Res();
-		//Copy data from main memory to device memory
-		errcode = clEnqueueWriteBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-
         printf("Working kernel memory: %fKiB\n",
                 (sizeof(float)*size_I*6)/1024.0);
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SRAD Data Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(errcode, "Failed to enqueue write buffer!");
+        int lsb_timing_repeats = 0;
+        struct timeval startTime, currentTime, elapsedTime;
+        gettimeofday(&startTime, NULL);
+        do {
+            LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-        LSB_Set_Rparam_string("region", "setting_srad1_kernel_arguments");
-        LSB_Res();
-		//Run kernels
-		errcode = clSetKernelArg(clKernel_srad1, 0, sizeof(cl_mem), (void *) &E_C);
-		errcode |= clSetKernelArg(clKernel_srad1, 1, sizeof(cl_mem), (void *) &W_C);
-		errcode |= clSetKernelArg(clKernel_srad1, 2, sizeof(cl_mem), (void *) &N_C);
-		errcode |= clSetKernelArg(clKernel_srad1, 3, sizeof(cl_mem), (void *) &S_C);
-		errcode |= clSetKernelArg(clKernel_srad1, 4, sizeof(cl_mem), (void *) &J_cuda);
-		errcode |= clSetKernelArg(clKernel_srad1, 5, sizeof(cl_mem), (void *) &C_cuda);
-		errcode |= clSetKernelArg(clKernel_srad1, 6, sizeof(int), (void *) &cols);
-		errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
-		errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
-		CHKERR(errcode, "Failed to set kernel arguments!");
-        LSB_Rec(0);
-        LSB_Set_Rparam_string("region", "srad1_kernel");
-        LSB_Res();
-		errcode = clEnqueueNDRangeKernel(commands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad1", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(errcode, "Failed to enqueue kernel!");
+#ifdef GPU
 
-        LSB_Set_Rparam_string("region", "setting_srad2_kernel_arguments");
-        LSB_Res();
-		errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
-		errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
-		errcode |= clSetKernelArg(clKernel_srad2, 2, sizeof(cl_mem), (void *) &N_C);
-		errcode |= clSetKernelArg(clKernel_srad2, 3, sizeof(cl_mem), (void *) &S_C);
-		errcode |= clSetKernelArg(clKernel_srad2, 4, sizeof(cl_mem), (void *) &J_cuda);
-		errcode |= clSetKernelArg(clKernel_srad2, 5, sizeof(cl_mem), (void *) &C_cuda);
-		errcode |= clSetKernelArg(clKernel_srad2, 6, sizeof(int), (void *) &cols);
-		errcode |= clSetKernelArg(clKernel_srad2, 7, sizeof(int), (void *) &rows);
-		errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
-		errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
-		CHKERR(errcode, "Failed to set kernel arguments!");
-        LSB_Rec(0);
+            //Currently the input size must be divided by 16 - the block size
+            int block_x = cols/BLOCK_SIZE ;
+            int block_y = rows/BLOCK_SIZE ;
 
-        LSB_Set_Rparam_string("region", "srad2_kernel");
-        LSB_Res();
-		errcode = clEnqueueNDRangeKernel(commands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad2", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(errcode, "Failed to enqueue kernel!");
+            size_t localWorkSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
+            size_t globalWorkSize[2] = {block_x*localWorkSize[0], block_y*localWorkSize[1]};
 
-        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
-        LSB_Res();
-		//Copy data from device memory to main memory
-		errcode = clEnqueueReadBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SRAD Data Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(errcode, "Failed to enqueue read buffer!");
+            LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+            LSB_Res();
+            //Copy data from main memory to device memory
+            errcode = clEnqueueWriteBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(0);
 
+            START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SRAD Data Copy", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            CHKERR(errcode, "Failed to enqueue write buffer!");
+
+            LSB_Set_Rparam_string("region", "setting_srad1_kernel_arguments");
+            LSB_Res();
+            //Run kernels
+            errcode = clSetKernelArg(clKernel_srad1, 0, sizeof(cl_mem), (void *) &E_C);
+            errcode |= clSetKernelArg(clKernel_srad1, 1, sizeof(cl_mem), (void *) &W_C);
+            errcode |= clSetKernelArg(clKernel_srad1, 2, sizeof(cl_mem), (void *) &N_C);
+            errcode |= clSetKernelArg(clKernel_srad1, 3, sizeof(cl_mem), (void *) &S_C);
+            errcode |= clSetKernelArg(clKernel_srad1, 4, sizeof(cl_mem), (void *) &J_cuda);
+            errcode |= clSetKernelArg(clKernel_srad1, 5, sizeof(cl_mem), (void *) &C_cuda);
+            errcode |= clSetKernelArg(clKernel_srad1, 6, sizeof(int), (void *) &cols);
+            errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
+            errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
+            CHKERR(errcode, "Failed to set kernel arguments!");
+            LSB_Rec(0);
+            LSB_Set_Rparam_string("region", "srad1_kernel");
+            LSB_Res();
+            errcode = clEnqueueNDRangeKernel(commands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(0);
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad1", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            CHKERR(errcode, "Failed to enqueue kernel!");
+
+            LSB_Set_Rparam_string("region", "setting_srad2_kernel_arguments");
+            LSB_Res();
+            errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
+            errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
+            errcode |= clSetKernelArg(clKernel_srad2, 2, sizeof(cl_mem), (void *) &N_C);
+            errcode |= clSetKernelArg(clKernel_srad2, 3, sizeof(cl_mem), (void *) &S_C);
+            errcode |= clSetKernelArg(clKernel_srad2, 4, sizeof(cl_mem), (void *) &J_cuda);
+            errcode |= clSetKernelArg(clKernel_srad2, 5, sizeof(cl_mem), (void *) &C_cuda);
+            errcode |= clSetKernelArg(clKernel_srad2, 6, sizeof(int), (void *) &cols);
+            errcode |= clSetKernelArg(clKernel_srad2, 7, sizeof(int), (void *) &rows);
+            errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
+            errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
+            CHKERR(errcode, "Failed to set kernel arguments!");
+            LSB_Rec(0);
+
+            LSB_Set_Rparam_string("region", "srad2_kernel");
+            LSB_Res();
+            errcode = clEnqueueNDRangeKernel(commands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(0);
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad2", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            CHKERR(errcode, "Failed to enqueue kernel!");
+
+            LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+            LSB_Res();
+            //Copy data from device memory to main memory
+            errcode = clEnqueueReadBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) O, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(0);
+            START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SRAD Data Copy", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            CHKERR(errcode, "Failed to enqueue read buffer!");
+
+            lsb_timing_repeats++;
+            gettimeofday(&currentTime, NULL);
+            timersub(&currentTime, &startTime, &elapsedTime);
+        } while (elapsedTime.tv_sec < MIN_TIME_SEC);
 #endif   
 	}
 
@@ -408,7 +420,7 @@ runTest( int argc, char** argv)
 	printf("Printing Output:\n"); 
 	for( i = 0 ; i < rows ; i++){
 		for ( j = 0 ; j < cols ; j++){
-			printf("%.5f ", J[i * cols + j]); 
+			printf("%.5f ", O[i * cols + j]); 
 		}	
 		printf("\n"); 
 	}
@@ -419,6 +431,7 @@ runTest( int argc, char** argv)
 
 	free(I);
 	free(J);
+    free(O);
 #ifdef CPU
 	free(iN); free(iS); free(jW); free(jE);
 	free(dN); free(dS); free(dW); free(dE);
