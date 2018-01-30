@@ -18,6 +18,7 @@
 #include "../inc/eth_crc32_lut.h"
 
 #define DATA_SIZE 100000000
+#define MIN_TIME_SEC 2
 
 //The CRC algorithms used in this dwarf were copied and/or adapted from
 //versions posted by Stephan Brumme on the website:
@@ -204,6 +205,7 @@ int main(int argc, char** argv)
 	//ocd_init(&argc, &argv, NULL);
 	ocd_initCL();
     LSB_Init("crc", 0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
 
 	while((c = getopt (argc, argv, "avn:s:i:p:w:k:hr:")) != -1)
 	{
@@ -357,107 +359,118 @@ int main(int argc, char** argv)
         printf("Working kernel memory: %fKiB\n",
                 (sizeof(char)*page_size*num_parallel_crcs[h] + sizeof(int)*num_parallel_crcs[h])/1024.0);
 
-		for(l=0; l<num_kernels; l++)
-		{
-			if(verbosity) printf("Executing with kernel #%u of %u: %s\n",l+1,num_kernels,kernel_files[l]);
-            LSB_Set_Rparam_string("region", "kernel_creation");
-            LSB_Res();
-			setup_device(kernel_files[l]);
-            LSB_Rec(l);
+            for(l=0; l<num_kernels; l++)
+            {
+                if(verbosity) printf("Executing with kernel #%u of %u: %s\n",l+1,num_kernels,kernel_files[l]);
+                LSB_Set_Rparam_string("region", "kernel_creation");
+                LSB_Res();
+                setup_device(kernel_files[l]);
+                LSB_Rec(l);
 
-			for(k=0; k<num_wg_sizes; k++)
-			{
-				if(verbosity) printf("Executing with Workgroup size #%u of %u: %zu\n",k+1,num_wg_sizes,wg_sizes[k]);
+                int lsb_timing_repeats = 0;
+                struct timeval startTime, currentTime, elapsedTime;
+                gettimeofday(&startTime, NULL);
+                do {
+                    LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-				for(ii=0; ii<num_execs; ii++)
-				{
-					if(verbosity) printf("Beginning execution #%u of %u...\n",ii+1,num_execs);
 
-#ifdef ENABLE_TIMER
-					TIMER_INIT
-#endif
-						for(i=0; i<num_blocks; i++)
-						{
-							if(verbosity >= 2) printf("\tEnqueuing commmands for block #%d of %d...\n",i+1,num_blocks);
-							if(i == num_blocks -1) //last iteration
-							{
-								global_size = num_pages_last_block;
-								local_size = wg_sizes[k];
-								if((global_size % local_size) != 0)
-								{
-									local_size = 1;
-									while((global_size % local_size) == 0) local_size = local_size << 1;
-									local_size = local_size >> 1;
-								}
-							}
-							else
-							{
-								global_size = num_parallel_crcs[h];
-								local_size = wg_sizes[k];
-							}
-							if(verbosity >= 2) printf("\tmain(): global_size=%zd - local_size=%zd\n",global_size,local_size);
-							enqueueCRCDevice(&h_num[i*num_parallel_crcs[h]*num_words],&ocl_remainders[i*num_parallel_crcs[h]],global_size,local_size,dev_input[i],dev_output[i],&write_page[i],&kernel_exec[i],&read_page[i]);
-						}
-					clFinish(write_queue);
-					clFinish(commands);
-					clFinish(read_queue);
+                    for(k=0; k<num_wg_sizes; k++)
+                    {
+                        if(verbosity) printf("Executing with Workgroup size #%u of %u: %zu\n",k+1,num_wg_sizes,wg_sizes[k]);
+
+                        for(ii=0; ii<num_execs; ii++)
+                        {
+                            if(verbosity) printf("Beginning execution #%u of %u...\n",ii+1,num_execs);
 
 #ifdef ENABLE_TIMER
-					TIMER_STOP
+                            TIMER_INIT
 #endif
-
-						for(i=0; i<num_blocks; i++)
-						{
-							if(verbosity >= 2) printf("Parallel Computation: '%X'\n", ocl_remainders[i]);
-
-							START_TIMER(write_page[i], OCD_TIMER_H2D, "CRC Data Copy", ocdTempTimer)
-							END_TIMER(ocdTempTimer)
-							clReleaseEvent(write_page[i]);
-
-							START_TIMER(kernel_exec[i], OCD_TIMER_KERNEL, "CRC Kernel", ocdTempTimer)
-							END_TIMER(ocdTempTimer)
-							clReleaseEvent(kernel_exec[i]);
-
-							START_TIMER(read_page[i], OCD_TIMER_D2H, "CRC Data Copy", ocdTempTimer)
-							END_TIMER(ocdTempTimer)
-							clReleaseEvent(read_page[i]);
-						}
+                                for(i=0; i<num_blocks; i++)
+                                {
+                                    if(verbosity >= 2) printf("\tEnqueuing commmands for block #%d of %d...\n",i+1,num_blocks);
+                                    if(i == num_blocks -1) //last iteration
+                                    {
+                                        global_size = num_pages_last_block;
+                                        local_size = wg_sizes[k];
+                                        if((global_size % local_size) != 0)
+                                        {
+                                            local_size = 1;
+                                            while((global_size % local_size) == 0) local_size = local_size << 1;
+                                            local_size = local_size >> 1;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        global_size = num_parallel_crcs[h];
+                                        local_size = wg_sizes[k];
+                                    }
+                                    if(verbosity >= 2) printf("\tmain(): global_size=%zd - local_size=%zd\n",global_size,local_size);
+                                    enqueueCRCDevice(&h_num[i*num_parallel_crcs[h]*num_words],&ocl_remainders[i*num_parallel_crcs[h]],global_size,local_size,dev_input[i],dev_output[i],&write_page[i],&kernel_exec[i],&read_page[i]);
+                                }
+                            clFinish(write_queue);
+                            clFinish(commands);
+                            clFinish(read_queue);
 
 #ifdef ENABLE_TIMER
-					TIMER_PRINT
+                            TIMER_STOP
 #endif
 
-						if(run_serial) // verify that we have the correct answer with regular C
-						{
-							printf("Validating results with serial CRC...\n");
-							//						gettimeofday(&start,NULL);
-							//						for(i=0; i<num_pages; i++)
-							//						{
-							//							cpu_remainder = serialCRC(&h_num[i*num_words], page_size);
-							//							if(verbosity >= 2) printf("Bitwise Computation: '%X'\n", cpu_remainder);
-							//							if(cpu_remainder != ocl_remainders[i])
-							//								fprintf(stderr,"ERROR: OCL and bitwise remainders for page %u differ [OCL: '%X', Bitwise: '%X']\n",i+1,ocl_remainders[i],cpu_remainder);
-							//						}
-							//						gettimeofday(&end,NULL);
-							//						printf("Bitwise CRC Time: ");
-							//						printTimeDiff(start,end);
+                                for(i=0; i<num_blocks; i++)
+                                {
+                                    if(verbosity >= 2) printf("Parallel Computation: '%X'\n", ocl_remainders[i]);
 
-							gettimeofday(&start,NULL);
-							for(i=0; i<num_pages; i++)
-							{
-								cpu_remainder = crc32_8bytes(&h_num[i*num_words], page_size);
-								if(verbosity >= 3) printf("CPU - Slice-by-8 Computation: '%X'\n", cpu_remainder);
-								if(cpu_remainder != ocl_remainders[i])
-									fprintf(stderr,"ERROR: OCL and CPU Slice-by-8 remainders for page %u differ [OCL: '%X', CPU: '%X']\n",i+1,ocl_remainders[i],cpu_remainder);
-							}
-							gettimeofday(&end,NULL);
-							printf("CPU Slice-by-8 CRC Time: ");
-							printTimeDiff(start,end);
-						}
-				}
-			}
-			clReleaseKernel(kernel_compute);
-		}
+                                    START_TIMER(write_page[i], OCD_TIMER_H2D, "CRC Data Copy", ocdTempTimer)
+                                        END_TIMER(ocdTempTimer)
+                                        clReleaseEvent(write_page[i]);
+
+                                    START_TIMER(kernel_exec[i], OCD_TIMER_KERNEL, "CRC Kernel", ocdTempTimer)
+                                        END_TIMER(ocdTempTimer)
+                                        clReleaseEvent(kernel_exec[i]);
+
+                                    START_TIMER(read_page[i], OCD_TIMER_D2H, "CRC Data Copy", ocdTempTimer)
+                                        END_TIMER(ocdTempTimer)
+                                        clReleaseEvent(read_page[i]);
+                                }
+
+#ifdef ENABLE_TIMER
+                            TIMER_PRINT
+#endif
+
+                            if(run_serial) // verify that we have the correct answer with regular C
+                            {
+                                printf("Validating results with serial CRC...\n");
+                                //						gettimeofday(&start,NULL);
+                                //						for(i=0; i<num_pages; i++)
+                                //						{
+                                //							cpu_remainder = serialCRC(&h_num[i*num_words], page_size);
+                                //							if(verbosity >= 2) printf("Bitwise Computation: '%X'\n", cpu_remainder);
+                                //							if(cpu_remainder != ocl_remainders[i])
+                                //								fprintf(stderr,"ERROR: OCL and bitwise remainders for page %u differ [OCL: '%X', Bitwise: '%X']\n",i+1,ocl_remainders[i],cpu_remainder);
+                                //						}
+                                //						gettimeofday(&end,NULL);
+                                //						printf("Bitwise CRC Time: ");
+                                //						printTimeDiff(start,end);
+
+                                gettimeofday(&start,NULL);
+                                for(i=0; i<num_pages; i++)
+                                {
+                                    cpu_remainder = crc32_8bytes(&h_num[i*num_words], page_size);
+                                    if(verbosity >= 3) printf("CPU - Slice-by-8 Computation: '%X'\n", cpu_remainder);
+                                    if(cpu_remainder != ocl_remainders[i])
+                                        fprintf(stderr,"ERROR: OCL and CPU Slice-by-8 remainders for page %u differ [OCL: '%X', CPU: '%X']\n",i+1,ocl_remainders[i],cpu_remainder);
+                                }
+                                gettimeofday(&end,NULL);
+                                printf("CPU Slice-by-8 CRC Time: ");
+                                printTimeDiff(start,end);
+                            }
+                    }
+                }
+                lsb_timing_repeats++;
+                gettimeofday(&currentTime, NULL);
+                timersub(&currentTime, &startTime, &elapsedTime);
+            } while (elapsedTime.tv_sec < MIN_TIME_SEC);
+            clReleaseKernel(kernel_compute);
+        }
 
 
 #ifdef ENABLE_TIMER
