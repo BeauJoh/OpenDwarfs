@@ -6,10 +6,18 @@ execfile('../opendwarf_application_parameters.py')
 from sys import argv,exit
 selected_device = 0
 selected_applications = None
-if len(argv) == 3:
+selected_problem_sizes = ['tiny',
+                          'small',
+                          #'medium',
+                          #'large',
+                          ]
+selected_iterations = 50
+if len(argv) == 5:
     selected_device = int(argv[1])
     selected_applications = str(argv[2])
-    print("Using device:"+str(selected_device)+"on application:"+selected_applications)
+    selected_problem_sizes = [str(argv[3])]
+    selected_iterations = int(argv[4])
+    print("Using device:"+str(selected_device)+"on application:"+selected_applications+"on size"+str(selected_problem_sizes[0]))
 
 #System specific device parameters
 device_parameters = None
@@ -193,14 +201,8 @@ else:
 #if running the whole list of dwarfs, we need to flatten the list first
 #selected_applications = reduce(lambda x,y :x+y ,dwarfs)
 
-selected_repetitions = 50#300
 selected_device = device_parameters
 
-selected_problem_sizes = ['tiny',
-                          'small',
-                          #'medium',
-                          #'large',
-                          ]
 #instrument all applications
 for application in selected_applications:
     for papi_env in selected_papi_envs:
@@ -208,7 +210,7 @@ for application in selected_applications:
             all_good = RunApplicationWithArguments(application,
                                                    application[str(problem_size)],
                                                    selected_device,
-                                                   selected_repetitions,
+                                                   selected_iterations,
                                                    papi_env['parameters'])
             if all_good:
                 StoreRun(application,
