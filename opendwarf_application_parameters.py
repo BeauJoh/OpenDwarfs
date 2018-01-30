@@ -114,7 +114,9 @@ tdm = {'name':'tdm',
 nqueens = {'name':'nqueens',
            'alias':'nqueens',
            'default':'20',
-           'full name':'N-Queens'}
+           'full name':'N-Queens',
+           'tiny':'8',
+           'small':'18'}
 swat = {'name':'swat',
         'alias':'swat',
         'default':'../test/dynamic-programming/swat/query1K1 ../test/dynamic-programming/swat/sampledb1K1',
