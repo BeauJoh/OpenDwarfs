@@ -12,6 +12,7 @@
 
 #define AOCL_ALIGNMENT 64
 
+#define MIN_TIME_SEC 2
 
 //#define TRACE
 
@@ -117,7 +118,11 @@ void runTest( int argc, char** argv)
 	}
 
     LSB_Init("needle", 0);
-   
+    LSB_Set_Rparam_int("max_cols", 0);
+    LSB_Set_Rparam_int("max_rows", 0);
+    LSB_Set_Rparam_int("penalty", 0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
+
     LSB_Set_Rparam_string("region", "host_side_setup");
     LSB_Res();
 
@@ -208,98 +213,109 @@ void runTest( int argc, char** argv)
             (((float)(sizeof(int) * size+
               sizeof(int) * size))/1024.0));
 
-    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
-    LSB_Res();
-	errcode = clEnqueueWriteBuffer(commands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Reference Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errcode, "Failed to enqueue write buffer!");
+    int lsb_timing_repeats = 0;
+    struct timeval startTime, currentTime, elapsedTime;
+    gettimeofday(&startTime, NULL);
+    do {
+        LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-	errcode = clEnqueueWriteBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Item Set Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errcode, "Failed to enqueue write buffer!");
-    LSB_Rec(0);
-
-	size_t localWorkSize[2] = {BLOCK_SIZE, 1}; //BLOCK_SIZE work items per work-group in 1D only.
-	size_t globalWorkSize[2];
-	int block_width = ( max_cols - 1 )/BLOCK_SIZE;
-
-      //  cl_int query= clGetKernelWorkGroupInfo (clKernel_nw1, device_id,CL_KERNEL_WORK_GROUP_SIZE,0,NULL,0);
-       // printf("query %zd\n",query);
-
-	printf("Processing top-left matrix\n");
-	//process top-left matrix
-	//Does what the 1st kernel loop does in a higher (block) level. i.e., takes care of blocks of BLOCK_SIZExBLOCK_SIZE in a wave-front pattern upwards
-	//the main anti-diagonal (on block-level).
-	//Each iteration takes care of 1, 2, 3, ... blocks that can be computed in parallel w/o dependencies
-	//E.g. first block [0][0], then blocks [0][1] and [1][0], then [0][2], [1][1], [2][0], etc.
-	for(i = 1 ; i <= block_width ; i++){
-		globalWorkSize[0] = i*localWorkSize[0]; //i.e., for 1st iteration BLOCK_SIZE total (=1 W.G.), for 2nd iteration 2*BLOCK_SIZE total work items
-		// (=2 W.G.)
-		globalWorkSize[1] = 1*localWorkSize[1];
-
-        LSB_Set_Rparam_string("region", "setting_clKernel_nw1_arguments");
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
         LSB_Res();
-		errcode = clSetKernelArg(clKernel_nw1, 0, sizeof(cl_mem), (void *) &referrence_cuda);
-		errcode |= clSetKernelArg(clKernel_nw1, 1, sizeof(cl_mem), (void *) &matrix_cuda);
-		errcode |= clSetKernelArg(clKernel_nw1, 2, sizeof(int), (void *) &max_cols);
-		errcode |= clSetKernelArg(clKernel_nw1, 3, sizeof(int), (void *) &penalty);
-		errcode |= clSetKernelArg(clKernel_nw1, 4, sizeof(int), (void *) &i);
-		errcode |= clSetKernelArg(clKernel_nw1, 5, sizeof(int), (void *) &block_width);
-		CHKERR(errcode, "Failed to set kernel arguments!");
-        LSB_Rec(i);
-		
-        LSB_Set_Rparam_string("region", "clKernel_nw1_kernel");
+        errcode = clEnqueueWriteBuffer(commands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Reference Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errcode, "Failed to enqueue write buffer!");
+
+        errcode = clEnqueueWriteBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Item Set Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errcode, "Failed to enqueue write buffer!");
+        LSB_Rec(0);
+
+        size_t localWorkSize[2] = {BLOCK_SIZE, 1}; //BLOCK_SIZE work items per work-group in 1D only.
+        size_t globalWorkSize[2];
+        int block_width = ( max_cols - 1 )/BLOCK_SIZE;
+
+          //  cl_int query= clGetKernelWorkGroupInfo (clKernel_nw1, device_id,CL_KERNEL_WORK_GROUP_SIZE,0,NULL,0);
+           // printf("query %zd\n",query);
+
+        printf("Processing top-left matrix\n");
+        //process top-left matrix
+        //Does what the 1st kernel loop does in a higher (block) level. i.e., takes care of blocks of BLOCK_SIZExBLOCK_SIZE in a wave-front pattern upwards
+        //the main anti-diagonal (on block-level).
+        //Each iteration takes care of 1, 2, 3, ... blocks that can be computed in parallel w/o dependencies
+        //E.g. first block [0][0], then blocks [0][1] and [1][0], then [0][2], [1][1], [2][0], etc.
+        for(i = 1 ; i <= block_width ; i++){
+            globalWorkSize[0] = i*localWorkSize[0]; //i.e., for 1st iteration BLOCK_SIZE total (=1 W.G.), for 2nd iteration 2*BLOCK_SIZE total work items
+            // (=2 W.G.)
+            globalWorkSize[1] = 1*localWorkSize[1];
+
+            LSB_Set_Rparam_string("region", "setting_clKernel_nw1_arguments");
+            LSB_Res();
+            errcode = clSetKernelArg(clKernel_nw1, 0, sizeof(cl_mem), (void *) &referrence_cuda);
+            errcode |= clSetKernelArg(clKernel_nw1, 1, sizeof(cl_mem), (void *) &matrix_cuda);
+            errcode |= clSetKernelArg(clKernel_nw1, 2, sizeof(int), (void *) &max_cols);
+            errcode |= clSetKernelArg(clKernel_nw1, 3, sizeof(int), (void *) &penalty);
+            errcode |= clSetKernelArg(clKernel_nw1, 4, sizeof(int), (void *) &i);
+            errcode |= clSetKernelArg(clKernel_nw1, 5, sizeof(int), (void *) &block_width);
+            CHKERR(errcode, "Failed to set kernel arguments!");
+            LSB_Rec(i);
+            
+            LSB_Set_Rparam_string("region", "clKernel_nw1_kernel");
+            LSB_Res();
+            errcode = clEnqueueNDRangeKernel(commands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(i);
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernel nw1", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            CHKERR(errcode, "Failed to enqueue kernel!");
+        }
+        printf("Processing bottom-right matrix\n");
+        //process bottom-right matrix
+        //Does what the 2nd kernel loop does in a higher (block) level. i.e., takes care of blocks of BLOCK_SIZExBLOCK_SIZE in a wave-front pattern downwards
+        //the main anti-diagonal.
+        //Each iteration takes care of ..., 3, 2, 1 blocks that can be computed in parallel w/o dependencies
+        for(i = block_width - 1  ; i >= 1 ; i--){
+            globalWorkSize[0] = i*localWorkSize[0];
+            globalWorkSize[1] = 1*localWorkSize[1];
+            LSB_Set_Rparam_string("region", "setting_clKernel_nw2_arguments");
+            LSB_Res();
+            errcode = clSetKernelArg(clKernel_nw2, 0, sizeof(cl_mem), (void *) &referrence_cuda);
+            errcode |= clSetKernelArg(clKernel_nw2, 1, sizeof(cl_mem), (void *) &matrix_cuda);
+            errcode |= clSetKernelArg(clKernel_nw2, 2, sizeof(int), (void *) &max_cols);
+            errcode |= clSetKernelArg(clKernel_nw2, 3, sizeof(int), (void *) &penalty);
+            errcode |= clSetKernelArg(clKernel_nw2, 4, sizeof(int), (void *) &i);
+            errcode |= clSetKernelArg(clKernel_nw2, 5, sizeof(int), (void *) &block_width);
+            CHKERR(errcode, "Failed to set kernel arguments!");
+            LSB_Rec(i);
+
+            LSB_Set_Rparam_string("region", "clKernel_nw2_kernel");
+            LSB_Res();
+            errcode = clEnqueueNDRangeKernel(commands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(i);
+
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernel nw2", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            CHKERR(errcode, "Failed to enqueue kernel!");
+        }
+
+        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
         LSB_Res();
-        errcode = clEnqueueNDRangeKernel(commands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(i);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernel nw1", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(errcode, "Failed to enqueue kernel!");
-	}
-	printf("Processing bottom-right matrix\n");
-	//process bottom-right matrix
-	//Does what the 2nd kernel loop does in a higher (block) level. i.e., takes care of blocks of BLOCK_SIZExBLOCK_SIZE in a wave-front pattern downwards
-	//the main anti-diagonal.
-	//Each iteration takes care of ..., 3, 2, 1 blocks that can be computed in parallel w/o dependencies
-	for(i = block_width - 1  ; i >= 1 ; i--){
-		globalWorkSize[0] = i*localWorkSize[0];
-		globalWorkSize[1] = 1*localWorkSize[1];
-        LSB_Set_Rparam_string("region", "setting_clKernel_nw2_arguments");
-        LSB_Res();
-		errcode = clSetKernelArg(clKernel_nw2, 0, sizeof(cl_mem), (void *) &referrence_cuda);
-		errcode |= clSetKernelArg(clKernel_nw2, 1, sizeof(cl_mem), (void *) &matrix_cuda);
-		errcode |= clSetKernelArg(clKernel_nw2, 2, sizeof(int), (void *) &max_cols);
-		errcode |= clSetKernelArg(clKernel_nw2, 3, sizeof(int), (void *) &penalty);
-		errcode |= clSetKernelArg(clKernel_nw2, 4, sizeof(int), (void *) &i);
-		errcode |= clSetKernelArg(clKernel_nw2, 5, sizeof(int), (void *) &block_width);
-		CHKERR(errcode, "Failed to set kernel arguments!");
-        LSB_Rec(i);
+        errcode = clEnqueueReadBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "clKernel_nw2_kernel");
-        LSB_Res();
-		errcode = clEnqueueNDRangeKernel(commands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(i);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "NW Item Set Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errcode, "Failed to enqueue read buffer!");
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernel nw2", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(errcode, "Failed to enqueue kernel!");
-	}
-
-    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
-    LSB_Res();
-	errcode = clEnqueueReadBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-    LSB_Rec(0);
-
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "NW Item Set Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errcode, "Failed to enqueue read buffer!");
+        lsb_timing_repeats++;
+        gettimeofday(&currentTime, NULL);
+        timersub(&currentTime, &startTime, &elapsedTime);
+    } while (elapsedTime.tv_sec < MIN_TIME_SEC);
 
     LSB_Finalize();
 
