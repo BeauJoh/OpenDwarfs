@@ -25,6 +25,7 @@
 #include <ctime>
 
 #define AOCL_ALIGNMENT 64
+#define MIN_TIME_SEC 2
 
 const char* kernelSource1 = "bfs_kernel.cl";
 const char* kernelSource2 = "kernel2.cl";
@@ -102,7 +103,7 @@ void BFSGraph(int argc, char ** argv)
 	}
 
     LSB_Init("bfs", 0);
-
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
     LSB_Set_Rparam_string("region", "host_side_setup");
     LSB_Res();
 
@@ -315,50 +316,69 @@ void BFSGraph(int argc, char ** argv)
 	size_t localWorkSize[1] = {maxThreads[0]};
 	printf("maxThreads[0]=%zu WorkSize[0]=%zu localWorkSize[0]=%zu\n", maxThreads[0], WorkSize[0], localWorkSize[0]);
 	cl_event syncEvent;
-	do
-	{
-		stop = 0;
-        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
-        LSB_Res();
-		//Copy stop to device
-		clEnqueueWriteBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(k);
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Stop Flag Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-        LSB_Set_Rparam_string("region", "kernel1_kernel");
-        LSB_Res();
-		//Run Kernel1 and Kernel2
-		cl_int err = clEnqueueNDRangeKernel(commands, kernel1, 1, NULL,
-				WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(k);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernel 1", ocdTempTimer)
-			END_TIMER(ocdTempTimer)
-			if(err != CL_SUCCESS)
-				printf("Error occurred running kernel1.(%d)\n", err);
-		LSB_Set_Rparam_string("region", "kernel2_kernel");
-        LSB_Res();
-        err = clEnqueueNDRangeKernel(commands, kernel2, 1, NULL,
-				WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(k);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernel 2", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		if(err != CL_SUCCESS)
-			printf("Error occurred running kernel2.\n");
+    int lsb_timing_repeats = 0;
+    struct timeval startTime, currentTime, elapsedTime;
+    gettimeofday(&startTime, NULL);
+    do {
+        LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
+        //reset the buffers
+        clEnqueueWriteBuffer(commands, d_cost, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_cost, 0, NULL, &ocdTempEvent);
+        clEnqueueWriteBuffer(commands, d_graph_nodes, CL_TRUE, 0, sizeof(Node) * no_of_nodes, h_graph_nodes, 0, NULL, &ocdTempEvent);
+        clEnqueueWriteBuffer(commands, d_graph_edges, CL_TRUE, 0, sizeof(int) * edge_list_size, h_graph_edges, 0, NULL, &ocdTempEvent);
+        clEnqueueWriteBuffer(commands, d_graph_mask, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_graph_mask, 0, NULL, &ocdTempEvent);
+        clEnqueueWriteBuffer(commands, d_updating_graph_mask, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_updating_graph_mask, 0, NULL, &ocdTempEvent);
+        clEnqueueWriteBuffer(commands, d_graph_visited, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_graph_visited, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        do
+        {
+            stop = 0;
+            LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+            LSB_Res();
+            //Copy stop to device
+            clEnqueueWriteBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(k);
 
-		//Copy stop from device
-        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
-        LSB_Res();
-		clEnqueueReadBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(k);
-		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Stop Flag Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer);
-		k++;
-	}while(stop == 1);
+            START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Stop Flag Copy", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            LSB_Set_Rparam_string("region", "kernel1_kernel");
+            LSB_Res();
+            //Run Kernel1 and Kernel2
+            cl_int err = clEnqueueNDRangeKernel(commands, kernel1, 1, NULL,
+                    WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(k);
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernel 1", ocdTempTimer)
+                END_TIMER(ocdTempTimer)
+                if(err != CL_SUCCESS)
+                    printf("Error occurred running kernel1.(%d)\n", err);
+            LSB_Set_Rparam_string("region", "kernel2_kernel");
+            LSB_Res();
+            err = clEnqueueNDRangeKernel(commands, kernel2, 1, NULL,
+                    WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(k);
+            START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernel 2", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
+            if(err != CL_SUCCESS)
+                printf("Error occurred running kernel2.\n");
+
+            //Copy stop from device
+            LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+            LSB_Res();
+            clEnqueueReadBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
+            clFinish(commands);
+            LSB_Rec(k);
+            START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Stop Flag Copy", ocdTempTimer)
+            END_TIMER(ocdTempTimer);
+            k++;
+        }while(stop == 1);
+
+        lsb_timing_repeats++;
+        gettimeofday(&currentTime, NULL);
+        timersub(&currentTime, &startTime, &elapsedTime);
+    } while (elapsedTime.tv_sec < MIN_TIME_SEC);
 
 	printf("Kernel Executed %d times\n", k);
 
