@@ -74,14 +74,6 @@ srad = {'name':'srad',
         'medium':'1024 336 0 127 0 127 0.5 1',#8064KiB
         'large':'2048 1024 0 127 0 127 0.5 1',#49152KiB
         'full name':'Speckle Reducing Anisotropic Diffusion'}
-cfd = {'name':'cfd',
-       'alias':'cfd',
-       'default':'../test/unstructured-grids/cfd/fvcorr.domn.097K',
-       'tiny':'../test/unstructured-grids/cfd/128.dat',#23.066KiB
-       'small':'../test/unstructured-grids/cfd/1284.dat',#253.066KiB
-       'medium':'../test/unstructured-grids/cfd/45056.dat',#8096KiB
-       'large':'../test/unstructured-grids/cfd/193474.dat',#34776.066KiB
-       'full name':'Computational Fluid Dynamics'}
 crc = {'name':'crc',
        'alias':'crc',
        'default':'-i ../test/combinational-logic/crc/crc_1000x8192.txt',
@@ -106,14 +98,6 @@ nw = {'name':'needle',
       'medium':'1008 10',#7953.76KiB
       'large':'4096 10',#131136KiB
       'full name':'Needleman-Wunsch'}
-swat = {'name':'swat',
-        'alias':'swat',
-        'default':'../test/dynamic-programming/swat/query1K1 ../test/dynamic-programming/swat/sampledb1K1',
-        'full name':'Smith-Waterman'}
-nqueens = {'name':'nqueens',
-           'alias':'nqueens',
-           'default':'20',
-           'full name':'N-Queens'}
 hmm = {'name':'bwa_hmm',
        'alias':'bwa_hmm',
        'default':'-n 30 -v n',
@@ -122,11 +106,27 @@ hmm = {'name':'bwa_hmm',
        'medium':'-n 1012 -s 1024 -v n',#8032.76KiB
        'large':'-n 2048 -s 2048 -v n',#32832.01KiB
        'full name':'Baum-Welch Algorithm, Hidden Markov Model'}
-#TODO: Test before squash: oclgrind --workload-characterisation ./bwa_hmm -p 0 -d 0 -t 0 -- -n 2048 -s 2048 -v n > log.txt
+#TODO: add 2 second loop logic to the following, then choose problem sizes
 tdm = {'name':'tdm',
        'alias':'tdm',
        'default':'../test/finite-state-machine/tdm/sim-64-size200.csv ../test/finite-state-machine/tdm/ivl.txt ../test/finite-state-machine/tdm/30-episodes.txt 128',
        'full name':'Temporal Data Mining'}
+nqueens = {'name':'nqueens',
+           'alias':'nqueens',
+           'default':'20',
+           'full name':'N-Queens'}
+swat = {'name':'swat',
+        'alias':'swat',
+        'default':'../test/dynamic-programming/swat/query1K1 ../test/dynamic-programming/swat/sampledb1K1',
+        'full name':'Smith-Waterman'}
+cfd = {'name':'cfd',
+       'alias':'cfd',
+       'default':'../test/unstructured-grids/cfd/fvcorr.domn.097K',
+       'tiny':'../test/unstructured-grids/cfd/128.dat',#23.066KiB
+       'small':'../test/unstructured-grids/cfd/1284.dat',#253.066KiB
+       'medium':'../test/unstructured-grids/cfd/45056.dat',#8096KiB
+       'large':'../test/unstructured-grids/cfd/193474.dat',#34776.066KiB
+       'full name':'Computational Fluid Dynamics'}
 
 #Dwarfs as clusters of Benchmarks:
 dense_linear_algebra = [kmeans,lud]
