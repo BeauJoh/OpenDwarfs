@@ -19,6 +19,8 @@
     #define AOCL_ALIGNMENT                    0
 #endif
 
+#define MIN_TIME_SEC 2
+
 /*
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -102,6 +104,7 @@ void init_cl()
 
 	ocd_initCL();//KK
     LSB_Init("bwa_hmm", 0);
+    LSB_Set_Rparam_int("repeats_to_two_seconds", 0);
 
 	/* identify the first platform */
 	//errNum = clGetPlatformIDs(1, &_cl_firstPlatform, NULL);
@@ -1154,115 +1157,126 @@ float run_hmm_bwa(  Hmm *hmm,
 	CHECK_NULL_ERROR( ones_n_d, "Error creating buffer for  ones_n_d");
 	CHECK_NULL_ERROR( ones_s_d, "Error creating buffer for  ones_s_d");
 
-	/* Transfer device data */
-    LSB_Set_Rparam_string("region", "device_side_h2d_copy");
-    LSB_Res();
-	errNum = clEnqueueWriteBuffer(commands, a_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, a, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "a_d Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error writing buffer a_d");
+    int lsb_timing_repeats = 0;
+    struct timeval startTime, currentTime, elapsedTime;
+    gettimeofday(&startTime, NULL);
+    do {
+        LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats);
 
-	errNum = clEnqueueWriteBuffer(commands, b_d, CL_TRUE, 0, sizeof(float) * nstates * nsymbols, b, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "b_d Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error writing buffer b_d");
+        /* Transfer device data */
+        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+        LSB_Res();
+        errNum = clEnqueueWriteBuffer(commands, a_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, a, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "a_d Data Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error writing buffer a_d");
 
-	errNum = clEnqueueWriteBuffer(commands, pi_d, CL_TRUE, 0, sizeof(float) * nstates, pi, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "pi_d Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error writing buffer pi_d");
-    LSB_Rec(0);
+        errNum = clEnqueueWriteBuffer(commands, b_d, CL_TRUE, 0, sizeof(float) * nstates * nsymbols, b, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "b_d Data Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error writing buffer b_d");
 
-	/* Initialize ones array */
-	threads_per_block = MAX_THREADS_PER_BLOCK;
-	nblocks = (nstates + threads_per_block - 1) / threads_per_block;
-	size_t globalWorkSize[1] = { nblocks * threads_per_block };
-	size_t localWorkSize[1]  = { threads_per_block };
+        errNum = clEnqueueWriteBuffer(commands, pi_d, CL_TRUE, 0, sizeof(float) * nstates, pi, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "pi_d Data Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error writing buffer pi_d");
+        LSB_Rec(0);
 
-	// init_ones_dev<<<nblocks, threads_per_block>>>(ones_s_d, nsymbols);
-    LSB_Set_Rparam_string("region", "setting__cl_kernel_init_ones_dev_arguments");
-    LSB_Res();
-	errNum  = clSetKernelArg(_cl_kernel_init_ones_dev, 0, sizeof(cl_mem), &ones_s_d);
-	errNum |= clSetKernelArg(_cl_kernel_init_ones_dev, 1, sizeof(int), &nsymbols);
-	CHKERR(errNum, "Error setting kernel _cl_kernel_init_ones_dev arguments");
-    LSB_Rec(0);
+        /* Initialize ones array */
+        threads_per_block = MAX_THREADS_PER_BLOCK;
+        nblocks = (nstates + threads_per_block - 1) / threads_per_block;
+        size_t globalWorkSize[1] = { nblocks * threads_per_block };
+        size_t localWorkSize[1]  = { threads_per_block };
 
-    LSB_Set_Rparam_string("region", "_cl_kernel_init_ones_dev_kernel");
-    LSB_Res();
-	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_init_ones_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-    LSB_Rec(0);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_init_ones_dev Kernel", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error queuing kernel _cl_kernel_init_ones_dev for execution");
+        // init_ones_dev<<<nblocks, threads_per_block>>>(ones_s_d, nsymbols);
+        LSB_Set_Rparam_string("region", "setting__cl_kernel_init_ones_dev_arguments");
+        LSB_Res();
+        errNum  = clSetKernelArg(_cl_kernel_init_ones_dev, 0, sizeof(cl_mem), &ones_s_d);
+        errNum |= clSetKernelArg(_cl_kernel_init_ones_dev, 1, sizeof(int), &nsymbols);
+        CHKERR(errNum, "Error setting kernel _cl_kernel_init_ones_dev arguments");
+        LSB_Rec(0);
 
-	/* Run BWA for either max iterations or until threshold is reached */
-	for (iter = 0; iter < iterations; iter++) {
+        LSB_Set_Rparam_string("region", "_cl_kernel_init_ones_dev_kernel");
+        LSB_Res();
+        errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_init_ones_dev, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        LSB_Rec(0);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "_cl_kernel_init_ones_dev Kernel", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error queuing kernel _cl_kernel_init_ones_dev for execution");
 
-		new_log_lik = calc_alpha();
-		if (new_log_lik == EXIT_ERROR) {
-			return EXIT_ERROR;
-		}
+        /* Run BWA for either max iterations or until threshold is reached */
+        for (iter = 0; iter < iterations; iter++) {
 
-		if (calc_beta() == EXIT_ERROR) {
-			return EXIT_ERROR;
-		}
+            new_log_lik = calc_alpha();
+            if (new_log_lik == EXIT_ERROR) {
+                return EXIT_ERROR;
+            }
 
-		calc_gamma_sum();
+            if (calc_beta() == EXIT_ERROR) {
+                return EXIT_ERROR;
+            }
 
-		if (calc_xi_sum() == EXIT_ERROR) {
-			return EXIT_ERROR;
-		}
+            calc_gamma_sum();
 
-		if (estimate_a() == EXIT_ERROR) {
-			return EXIT_ERROR;
-		}
+            if (calc_xi_sum() == EXIT_ERROR) {
+                return EXIT_ERROR;
+            }
 
-		if (estimate_b() == EXIT_ERROR) {
-			return EXIT_ERROR;
-		}
+            if (estimate_a() == EXIT_ERROR) {
+                return EXIT_ERROR;
+            }
 
-		if (estimate_pi() == EXIT_ERROR) {
-			return EXIT_ERROR;
-		}
+            if (estimate_b() == EXIT_ERROR) {
+                return EXIT_ERROR;
+            }
 
-		/* check log_lik vs. threshold */
-		if (threshold > 0 && iter > 0) {
-			if (fabs(pow(10,new_log_lik) - pow(10,old_log_lik)) < threshold) {
-				break;
-			}
-		}
+            if (estimate_pi() == EXIT_ERROR) {
+                return EXIT_ERROR;
+            }
 
-		old_log_lik = new_log_lik;   
+            /* check log_lik vs. threshold */
+            if (threshold > 0 && iter > 0) {
+                if (fabs(pow(10,new_log_lik) - pow(10,old_log_lik)) < threshold) {
+                    break;
+                }
+            }
 
-	}
+            old_log_lik = new_log_lik;   
 
-    LSB_Set_Rparam_string("region", "device_side_d2h_copy");
-    LSB_Res();
-	/* Copy device variables back to host */
-	errNum = clEnqueueReadBuffer(commands, a_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, a, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "a_d Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error reading buffer a_d");
+        }
 
-	errNum = clEnqueueReadBuffer(commands, b_d, CL_TRUE, 0, sizeof(float) * nstates * nsymbols, b, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "b_d Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error reading buffer b_d");
+        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+        LSB_Res();
+        /* Copy device variables back to host */
+        errNum = clEnqueueReadBuffer(commands, a_d, CL_TRUE, 0, sizeof(float) * nstates * nstates, a, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "a_d Data Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error reading buffer a_d");
 
-	errNum = clEnqueueReadBuffer(commands, pi_d, CL_TRUE, 0, sizeof(float) * nstates, pi, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "pi_d Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(errNum, "Error reading buffer pi_d");
+        errNum = clEnqueueReadBuffer(commands, b_d, CL_TRUE, 0, sizeof(float) * nstates * nsymbols, b, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "b_d Data Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error reading buffer b_d");
 
-	clFinish(commands);
-    LSB_Rec(0);
+        errNum = clEnqueueReadBuffer(commands, pi_d, CL_TRUE, 0, sizeof(float) * nstates, pi, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "pi_d Data Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+        CHKERR(errNum, "Error reading buffer pi_d");
+
+        clFinish(commands);
+        LSB_Rec(0);
+
+        lsb_timing_repeats++;
+        gettimeofday(&currentTime, NULL);
+        timersub(&currentTime, &startTime, &elapsedTime);
+    } while (elapsedTime.tv_sec < MIN_TIME_SEC);
 
 	/* Free memory */
 	free(scale);
