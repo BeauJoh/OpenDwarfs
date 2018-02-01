@@ -46,6 +46,8 @@ int main(int argc, char** argv)
 
     LSB_Init("nqueens",0);
     LSB_Set_Rparam_int("board_size",0);
+    LSB_Set_Rparam_int("j", 0);
+
 	// handle options
 	bool force_cpu = false;
 	//bool use_clcpu = false;
