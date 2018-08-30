@@ -4,6 +4,12 @@ from opendwarf_miner_utils import *
 from sys import argv,exit
 selected_applications = None
 
+oclgrind = ''
+if os.environ['OCLGRIND_BIN'] == '':
+    oclgrind = 'oclgrind'
+else:
+    oclgrind = os.environ['OCLGRIND_BIN']
+
 if len(argv) == 2:
     selected_applications = str(argv[1])
     print("Running Oclgrind on application:"+selected_applications)
@@ -276,7 +282,7 @@ for application in selected_applications:
                                                str(application[str(problem_size)]),
                                                selected_device,
                                                selected_repetitions,
-                                               "oclgrind --workload-characterisation ")
+                                               str(oclgrind + " --workload-characterisation "))
         if all_good:
             count = 0
             file_name = "aiwc_" + application['name'] + "_" + problem_size + "_" + str(count) + ".zip"

@@ -1,7 +1,8 @@
 #/usr/bin/env python
 from opendwarf_miner_utils import *
 
-execfile('../opendwarf_application_parameters.py')
+exec(open('../opendwarf_application_parameters.py').read())
+#execfile('../opendwarf_application_parameters.py')
 
 from sys import argv,exit
 selected_device = 0
