@@ -131,7 +131,7 @@ tdm = {'name':'tdm',
        'full name':'Temporal Data Mining'}
 
 #Dwarfs as clusters of Benchmarks:
-dense_linear_algebra = [kmeans,lud]
+dense_linear_algebra = [lud]
 sparse_linear_algebra = [csr]
 spectral_methods = [fft,dwt]
 n_body_methods = [gem]
@@ -143,12 +143,9 @@ dynamic_programming = [nw,swat]
 backtrack_branch_and_bound = [nqueens]
 graphical_models = [hmm]
 finite_state_machines = [tdm]
+map_reduce = [kmeans]
 
-dwarfs = [#dense_linear_algebra,
-        #sparse_linear_algebra],
-        spectral_methods]#,
-        #n_body_methods,
-        #structured_grid_methods]
+dwarfs = dense_linear_algebra + sparse_linear_algebra + spectral_methods + n_body_methods + structured_grid_methods + unstructured_grid_methods + combinational_logic + graph_traversal + dynamic_programming + backtrack_branch_and_bound + graphical_models + finite_state_machines + map_reduce
 
 #System specific device parameters
 device_parameters = GenerateDeviceParameters(0,0,0)
@@ -251,16 +248,17 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 #selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'L3_total_cache_miss_rate'])
 
 if selected_applications == None:
-    selected_applications = [
-                             #kmeans,
-                             #lud,
-                             #csr,
-                             #fft,
-                             dwt,
-                             #gem,
-                             #srad,
-                             #crc,
-                            ]
+    selected_applications = dwarfs
+    #selected_applications = [
+    #                         #kmeans,
+    #                         #lud,
+    #                         #csr,
+    #                         #fft,
+    #                         dwt,
+    #                         #gem,
+    #                         #srad,
+    #                         #crc,
+    #                        ]
 else:
     exec("%s = [%s]"%("selected_applications",selected_applications))
 
@@ -270,9 +268,9 @@ else:
 selected_repetitions = 1
 selected_device = device_parameters
 
-selected_problem_sizes = [#'tiny',
-                          #'small',
-                          #'medium',
+selected_problem_sizes = ['tiny',
+                          'small',
+                          'medium',
                           'large',
                           ]
 #instrument all applications
