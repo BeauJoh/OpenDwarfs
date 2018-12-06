@@ -1,3 +1,5 @@
+#include <sys/time.h>
+#include <unistd.h>
 #include "global.h"
 #include "functions.h"
 #include "timeRec.h"
@@ -10,6 +12,8 @@
 #include "../../include/common_args.h"
 #include "../../include/lsb.h"
 #define AOCL_ALIGNMENT 64
+
+#define MIN_TIME_SEC 2
 
 /*************************************************************
  **************** Version 1 **********************************
@@ -26,6 +30,15 @@
 #define MIN(a, b) \
 	(a < b ? a : b) \
 
+ /*---< usage() >------------------------------------------------------------*/
+void usage(char *argv0) {
+	char *help =
+		"\nUsage: %s queryFileName dbDataFileName [switches]\n\n"
+		"    -v               :verbose (print details of sequence match)\n"
+		;
+	fprintf(stderr, help, argv0);
+	exit(-1);
+}
 
 char * loadSource(char *filePathName, size_t *fileSize)
 {
@@ -177,6 +190,20 @@ int main(int argc, char ** argv)
 	sprintf(queryFilePathName, "%s", argv[1]);
 	sprintf(dbDataFilePathName, "%s.data", argv[2]);
 	sprintf(dbLenFilePathName, "%s.loc", argv[2]);
+
+	/* obtain command line arguments and change appropriate options */
+	bool verbose = false;
+	int	opt;
+	while ((opt = getopt(argc, argv, "v")) != EOF) {
+		switch (opt) {
+		case 'v': verbose = true;
+			break;
+		case '?': usage(argv[0]);
+			break;
+		default: usage(argv[0]);
+			break;
+		}
+	}
 
 	char *allSequences, *querySequence, *subSequence;
 	char *seq1, *seq2;
@@ -396,330 +423,340 @@ int main(int argc, char ** argv)
 	fread(&subSequenceNum, sizeof(int), 1, pDBLenFile);
     LSB_Rec(0);
 
-	//get the larger and smaller of the row and colum number
-	int subSequenceNo, launchNum, launchNo;
-	int rowNum, columnNum, matrixIniNum;
-	int DPMatrixSize;
-	int seq1Pos, seq2Pos, nOffset, startPos;
+	int lsb_timing_repeats = 0;
+	struct timeval startTime, currentTime, elapsed;
+	gettimeofday(&startTime, NULL);
+	do {
+		//get the larger and smaller of the row and colum number
+		int subSequenceNo, launchNum, launchNo;
+		int rowNum, columnNum, matrixIniNum;
+		int DPMatrixSize;
+		int seq1Pos, seq2Pos, nOffset, startPos;
 
-	for (subSequenceNo = 0; subSequenceNo < subSequenceNum; subSequenceNo++)
-	{
-        LSB_Set_Rparam_string("region", "host_side_setup");
-        LSB_Res();
-		//record time
-		timerStart();
-
-		//read subject sequence
-		fread(&subSequenceSize, sizeof(int), 1, pDBLenFile);
-		if (subSequenceSize <= 0 || subSequenceSize > MAX_LEN)
+		for (subSequenceNo = 0; subSequenceNo < subSequenceNum; subSequenceNo++)
 		{
-			printf("Size %d of bubject sequence %d is out of range!\n",
+			LSB_Set_Rparam_string("region", "host_side_setup");
+			LSB_Res();
+			//record time
+			timerStart();
+
+			//read subject sequence
+			fread(&subSequenceSize, sizeof(int), 1, pDBLenFile);
+			if (subSequenceSize <= 0 || subSequenceSize > MAX_LEN)
+			{
+				printf("Size %d of bubject sequence %d is out of range!\n",
 					subSequenceSize,
 					subSequenceNo);
-			break;
-		}
-		fread(subSequence, sizeof(char), subSequenceSize, pDBDataFile);
+				break;
+			}
+			fread(subSequence, sizeof(char), subSequenceSize, pDBDataFile);
 
-		gettimeofday(&t1, NULL);
-		if (subSequenceSize > querySize)
-		{
-			seq1 = subSequence;
-			seq2 = querySequence;
-			rowNum = subSequenceSize + 1;
-			columnNum = querySize + 1;
-		}
-		else
-		{
-			seq1 = querySequence;
-			seq2 = subSequence;
-			rowNum = querySize + 1;
-			columnNum = subSequenceSize + 1;
-		}
+			gettimeofday(&t1, NULL);
+			if (subSequenceSize > querySize)
+			{
+				seq1 = subSequence;
+				seq2 = querySequence;
+				rowNum = subSequenceSize + 1;
+				columnNum = querySize + 1;
+			}
+			else
+			{
+				seq1 = querySequence;
+				seq2 = subSequence;
+				rowNum = querySize + 1;
+				columnNum = subSequenceSize + 1;
+			}
 
-		launchNum = rowNum + columnNum - 1;
+			launchNum = rowNum + columnNum - 1;
 
-		//preprocessing for sequences
-		DPMatrixSize = preProcessing(rowNum,
+			//preprocessing for sequences
+			DPMatrixSize = preProcessing(rowNum,
 				columnNum,
 				threadNum,
 				diffPos,
 				matrixIniNum);
 
-		//record time
-		timerEnd();
-		strTime.preprocessingTime += elapsedTime();
+			//record time
+			timerEnd();
+			strTime.preprocessingTime += elapsedTime();
 
-		//record time
-		timerStart();
+			//record time
+			timerStart();
 
-		//use a kernel to initialize the matrix
-		arraySize = DPMatrixSize * sizeof(char);
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-        LSB_Rec(0);
-        LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-        LSB_Rec(0);
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			//use a kernel to initialize the matrix
+			arraySize = DPMatrixSize * sizeof(char);
+			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+			LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
+			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
+			LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-        LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&extFlagD);
-        LSB_Rec(0);
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			clFinish(commands);
+			LSB_Rec(0);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&extFlagD);
+			LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-		LSB_Rec(0);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Initialize flag matrice");
+			clFinish(commands);
+			LSB_Rec(0);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Initialize flag matrice");
 
-		arraySize = matrixIniNum * sizeof(float);
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-		LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-        err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&nGapDistD);
-		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-        LSB_Rec(0);
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			arraySize = matrixIniNum * sizeof(float);
+			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&nGapDistD);
+			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
+			LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
+			clFinish(commands);
+			LSB_Rec(0);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
 
-		LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&hGapDistD);
-        LSB_Rec(0);
+				LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&hGapDistD);
+			LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
+			clFinish(commands);
+			LSB_Rec(0);
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
 
-		LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&vGapDistD);
-        LSB_Rec(0);
+				LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&vGapDistD);
+			LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
+			clFinish(commands);
+			LSB_Rec(0);
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Initialize dist matrice");
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Initialize dist matrice");
 
-		arraySize = sizeof(MAX_INFO) * mfThreadNum;
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-        LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&maxInfoD);
-		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-        LSB_Rec(0);
+			arraySize = sizeof(MAX_INFO) * mfThreadNum;
+			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&maxInfoD);
+			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
+			LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
+			clFinish(commands);
+			LSB_Rec(0);
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Initialize max info");
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Initialize max info");
 
-		arraySize = sizeof(int);
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+			arraySize = sizeof(int);
+			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
 
-        LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-        LSB_Res();
-		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&mutexMem);
-		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-        LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Res();
+			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&mutexMem);
+			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
+			LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-        LSB_Res();
+			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
+			LSB_Res();
 
-		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Initialize mutex variable");
+			clFinish(commands);
+			LSB_Rec(0);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Initialize mutex variable");
 
-        LSB_Set_Rparam_string("region", "device_side_h2d_copy");
-        LSB_Res();
-		//copy input sequences to device
-		err  = clEnqueueWriteBuffer(commands, seq1D, CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
+			LSB_Set_Rparam_string("region", "device_side_h2d_copy");
+			LSB_Res();
+			//copy input sequences to device
+			err = clEnqueueWriteBuffer(commands, seq1D, CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
 
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		err |= clEnqueueWriteBuffer(commands, seq2D, CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "copy input sequence");
+			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				err |= clEnqueueWriteBuffer(commands, seq2D, CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "copy input sequence");
 
-		err  = clEnqueueWriteBuffer(commands, diffPosD, CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		err |= clEnqueueWriteBuffer(commands, threadNumD, CL_FALSE, 0, launchNum * sizeof(cl_int), threadNum, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "copy diffpos and/or threadNum mutexMem info error!");
-        LSB_Rec(0);
+			err = clEnqueueWriteBuffer(commands, diffPosD, CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				err |= clEnqueueWriteBuffer(commands, threadNumD, CL_FALSE, 0, launchNum * sizeof(cl_int), threadNum, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "copy diffpos and/or threadNum mutexMem info error!");
+			LSB_Rec(0);
 
-		//record time
-		timerEnd();
-		strTime.copyTimeHostToDevice += elapsedTime();
+			//record time
+			timerEnd();
+			strTime.copyTimeHostToDevice += elapsedTime();
 
-		//record time
-		timerStart();
+			//record time
+			timerStart();
 
-        LSB_Set_Rparam_string("region", "setting_hMatchStringKernel_arguments");
-        LSB_Res();
-		//set arguments
-		err  = clSetKernelArg(hMatchStringKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-		err |= clSetKernelArg(hMatchStringKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
-		err |= clSetKernelArg(hMatchStringKernel, 2, sizeof(cl_mem), (void *)&nGapDistD);
-		err |= clSetKernelArg(hMatchStringKernel, 3, sizeof(cl_mem), (void *)&hGapDistD);
-		err |= clSetKernelArg(hMatchStringKernel, 4, sizeof(cl_mem), (void *)&vGapDistD);
-		err |= clSetKernelArg(hMatchStringKernel, 5, sizeof(cl_mem), (void *)&diffPosD);
-		err |= clSetKernelArg(hMatchStringKernel, 6, sizeof(cl_mem), (void *)&threadNumD);
-		err |= clSetKernelArg(hMatchStringKernel, 7, sizeof(cl_int), (void *)&rowNum);
-		err |= clSetKernelArg(hMatchStringKernel, 8, sizeof(cl_int), (void *)&columnNum);
-		err |= clSetKernelArg(hMatchStringKernel, 9, sizeof(cl_mem), (void *)&seq1D);
-		err |= clSetKernelArg(hMatchStringKernel, 10, sizeof(cl_mem), (void *)&seq2D);	
-		err |= clSetKernelArg(hMatchStringKernel, 11, sizeof(cl_int), (void *)&nblosumWidth);
-		err |= clSetKernelArg(hMatchStringKernel, 12, sizeof(cl_float), (void *)&openPenalty);
-		err |= clSetKernelArg(hMatchStringKernel, 13, sizeof(cl_float), (void *)&extensionPenalty);
-		err |= clSetKernelArg(hMatchStringKernel, 14, sizeof(cl_mem), (void *)&maxInfoD);
-		err |= clSetKernelArg(hMatchStringKernel, 15, sizeof(cl_mem), (void *)&blosum62D);
-		err |= clSetKernelArg(hMatchStringKernel, 16, sizeof(cl_mem), (void *)&mutexMem);
-		//err |= clSetKernelArg(hMatchStringKernel, 17, maxLocalSize, NULL);
-		CHKERR(err, "Set match string argument error!");
-        LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "setting_hMatchStringKernel_arguments");
+			LSB_Res();
+			//set arguments
+			err = clSetKernelArg(hMatchStringKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
+			err |= clSetKernelArg(hMatchStringKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
+			err |= clSetKernelArg(hMatchStringKernel, 2, sizeof(cl_mem), (void *)&nGapDistD);
+			err |= clSetKernelArg(hMatchStringKernel, 3, sizeof(cl_mem), (void *)&hGapDistD);
+			err |= clSetKernelArg(hMatchStringKernel, 4, sizeof(cl_mem), (void *)&vGapDistD);
+			err |= clSetKernelArg(hMatchStringKernel, 5, sizeof(cl_mem), (void *)&diffPosD);
+			err |= clSetKernelArg(hMatchStringKernel, 6, sizeof(cl_mem), (void *)&threadNumD);
+			err |= clSetKernelArg(hMatchStringKernel, 7, sizeof(cl_int), (void *)&rowNum);
+			err |= clSetKernelArg(hMatchStringKernel, 8, sizeof(cl_int), (void *)&columnNum);
+			err |= clSetKernelArg(hMatchStringKernel, 9, sizeof(cl_mem), (void *)&seq1D);
+			err |= clSetKernelArg(hMatchStringKernel, 10, sizeof(cl_mem), (void *)&seq2D);
+			err |= clSetKernelArg(hMatchStringKernel, 11, sizeof(cl_int), (void *)&nblosumWidth);
+			err |= clSetKernelArg(hMatchStringKernel, 12, sizeof(cl_float), (void *)&openPenalty);
+			err |= clSetKernelArg(hMatchStringKernel, 13, sizeof(cl_float), (void *)&extensionPenalty);
+			err |= clSetKernelArg(hMatchStringKernel, 14, sizeof(cl_mem), (void *)&maxInfoD);
+			err |= clSetKernelArg(hMatchStringKernel, 15, sizeof(cl_mem), (void *)&blosum62D);
+			err |= clSetKernelArg(hMatchStringKernel, 16, sizeof(cl_mem), (void *)&mutexMem);
+			//err |= clSetKernelArg(hMatchStringKernel, 17, maxLocalSize, NULL);
+			CHKERR(err, "Set match string argument error!");
+			LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "hMatchStringKernel_kernel");
-        LSB_Res();
-		err = clEnqueueNDRangeKernel(commands, hMatchStringKernel, 1, NULL, &mfThreadNum,
+			LSB_Set_Rparam_string("region", "hMatchStringKernel_kernel");
+			LSB_Res();
+			err = clEnqueueNDRangeKernel(commands, hMatchStringKernel, 1, NULL, &mfThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Launch kernel match string error");
+			clFinish(commands);
+			LSB_Rec(0);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Launch kernel match string error");
 
-		//record time
-		timerEnd();
-		strTime.matrixFillingTime += elapsedTime();
+			//record time
+			timerEnd();
+			strTime.matrixFillingTime += elapsedTime();
 
-		//record time
-		timerStart();
+			//record time
+			timerStart();
 
-        LSB_Set_Rparam_string("region", "setting_hTraceBackKernel_arguments");
-        LSB_Res();
-		err  = clSetKernelArg(hTraceBackKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-		err |= clSetKernelArg(hTraceBackKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
-		err |= clSetKernelArg(hTraceBackKernel, 2, sizeof(cl_mem), (void *)&diffPosD);
-		err |= clSetKernelArg(hTraceBackKernel, 3, sizeof(cl_mem), (void *)&seq1D);
-		err |= clSetKernelArg(hTraceBackKernel, 4, sizeof(cl_mem), (void *)&seq2D);	
-		err |= clSetKernelArg(hTraceBackKernel, 5, sizeof(cl_mem), (void *)&outSeq1D);
-		err |= clSetKernelArg(hTraceBackKernel, 6, sizeof(cl_mem), (void *)&outSeq2D);	
-		err |= clSetKernelArg(hTraceBackKernel, 7, sizeof(cl_mem), (void *)&maxInfoD);
-		err |= clSetKernelArg(hTraceBackKernel, 8, sizeof(int), (void *)&mfThreadNum);
-        LSB_Rec(0);
+			LSB_Set_Rparam_string("region", "setting_hTraceBackKernel_arguments");
+			LSB_Res();
+			err = clSetKernelArg(hTraceBackKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
+			err |= clSetKernelArg(hTraceBackKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
+			err |= clSetKernelArg(hTraceBackKernel, 2, sizeof(cl_mem), (void *)&diffPosD);
+			err |= clSetKernelArg(hTraceBackKernel, 3, sizeof(cl_mem), (void *)&seq1D);
+			err |= clSetKernelArg(hTraceBackKernel, 4, sizeof(cl_mem), (void *)&seq2D);
+			err |= clSetKernelArg(hTraceBackKernel, 5, sizeof(cl_mem), (void *)&outSeq1D);
+			err |= clSetKernelArg(hTraceBackKernel, 6, sizeof(cl_mem), (void *)&outSeq2D);
+			err |= clSetKernelArg(hTraceBackKernel, 7, sizeof(cl_mem), (void *)&maxInfoD);
+			err |= clSetKernelArg(hTraceBackKernel, 8, sizeof(int), (void *)&mfThreadNum);
+			LSB_Rec(0);
 
-        LSB_Set_Rparam_string("region", "hTraceBackKernel");
-        LSB_Res();
-		size_t tbGlobalSize[1] = {1};
-		size_t tbLocalSize[1]  = {1};
-		err = clEnqueueNDRangeKernel(commands, hTraceBackKernel, 1, NULL, tbGlobalSize,
+			LSB_Set_Rparam_string("region", "hTraceBackKernel");
+			LSB_Res();
+			size_t tbGlobalSize[1] = { 1 };
+			size_t tbLocalSize[1] = { 1 };
+			err = clEnqueueNDRangeKernel(commands, hTraceBackKernel, 1, NULL, tbGlobalSize,
 				tbLocalSize, 0, NULL, &ocdTempEvent);
-		clFinish(commands);
-        LSB_Rec(0);
-		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Launch kernel trace back error");
-		clFinish(commands);
-		//record time
-		timerEnd();
-		strTime.traceBackTime += elapsedTime();
+			clFinish(commands);
+			LSB_Rec(0);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Launch kernel trace back error");
+			clFinish(commands);
+			//record time
+			timerEnd();
+			strTime.traceBackTime += elapsedTime();
 
-		//record time
-		timerStart();
+			//record time
+			timerStart();
 
-        LSB_Set_Rparam_string("region", "device_side_d2h_copy");
-        LSB_Res();
-		//copy matrix score structure back
-		err = clEnqueueReadBuffer(commands, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO),
+			LSB_Set_Rparam_string("region", "device_side_d2h_copy");
+			LSB_Res();
+			//copy matrix score structure back
+			err = clEnqueueReadBuffer(commands, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO),
 				maxInfo, 0, 0, &ocdTempEvent);
-		clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Max Info Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Read maxInfo buffer error!");
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Max Info Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Read maxInfo buffer error!");
 
-		int maxOutputLen = rowNum + columnNum - 2;
-		err  = clEnqueueReadBuffer(commands, outSeq1D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
+			int maxOutputLen = rowNum + columnNum - 2;
+			err = clEnqueueReadBuffer(commands, outSeq1D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
 				outSeq1, 0, 0, &ocdTempEvent);
-		clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		err = clEnqueueReadBuffer(commands, outSeq2D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				err = clEnqueueReadBuffer(commands, outSeq2D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
 					outSeq2, 0, 0, &ocdTempEvent);
-		clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Read output sequence error!");
-		//record time
-		clFinish(commands);
-		gettimeofday(&t2, NULL);
-		timerEnd();
-		strTime.copyTimeDeviceToHost += elapsedTime();
-        LSB_Rec(0);
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
+				CHKERR(err, "Read output sequence error!");
+			//record time
+			clFinish(commands);
+			gettimeofday(&t2, NULL);
+			timerEnd();
+			strTime.copyTimeDeviceToHost += elapsedTime();
+			LSB_Rec(0);
 
-		//call the print function to print the match result
-		printf("============================================================\n");
-		printf("Sequence pair %d:\n", subSequenceNo);
-		int nlength = maxInfo->noutputlen;
-		PrintAlignment(outSeq1, outSeq2, nlength, CHAR_PER_LINE, openPenalty, extensionPenalty);
-		printf("Max alignment score (on device) is %.1f\n", maxInfo->fmaxscore);
-		//obtain max alignment score on host
-		//err = clEnqueueReadBuffer(commands, nGapDistD, CL_TRUE, 0, sizeof(cl_float) * DPMatrixSize,
-		//						  nGapDist, 0, 0, 0);
-		//printf("Max alignment score (on host) is %.1f\n", maxScore(nGapDist, DPMatrixSize));
+			if (verbose) {
+				//call the print function to print the match result
+				printf("============================================================\n");
+				printf("Sequence pair %d:\n", subSequenceNo);
+				int nlength = maxInfo->noutputlen;
+				PrintAlignment(outSeq1, outSeq2, nlength, CHAR_PER_LINE, openPenalty, extensionPenalty);
+				printf("Max alignment score (on device) is %.1f\n", maxInfo->fmaxscore);
+				//obtain max alignment score on host
+				//err = clEnqueueReadBuffer(commands, nGapDistD, CL_TRUE, 0, sizeof(cl_float) * DPMatrixSize,
+				//						  nGapDist, 0, 0, 0);
+				//printf("Max alignment score (on host) is %.1f\n", maxScore(nGapDist, DPMatrixSize));
 
-		printf("openPenalty = %.1f, extensionPenalty = %.1f\n", openPenalty, extensionPenalty);
-		printf("Input sequence size, querySize: %d, subSequenceSize: %d\n", 
-				querySize, subSequenceSize);
+				printf("openPenalty = %.1f, extensionPenalty = %.1f\n", openPenalty, extensionPenalty);
+				printf("Input sequence size, querySize: %d, subSequenceSize: %d\n",
+					querySize, subSequenceSize);
 
-		printf("Max position, seq1 = %d, seq2 = %d\n", maxInfo->nposi, maxInfo->nposj);
-	}
+				printf("Max position, seq1 = %d, seq2 = %d\n", maxInfo->nposi, maxInfo->nposj);
+			}
+		}
+		lsb_timing_repeats++;
+		gettimeofday(&currentTime, NULL);
+		timersub(&currentTime, &startTime, &elapsed);
+	} while (elapsed.tv_sec < MIN_TIME_SEC);
     LSB_Finalize();
 
 	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
