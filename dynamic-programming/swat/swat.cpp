@@ -483,122 +483,34 @@ int main(int argc, char ** argv)
 			//record time
 			timerStart();
 
-			//use a kernel to initialize the matrix
-			arraySize = DPMatrixSize * sizeof(char);
-			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-			LSB_Rec(0);
-			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
+			LSB_Set_Rparam_string("region", "fillBuffers");
 			LSB_Res();
-			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-			LSB_Rec(0);
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+			cl_event fillEvents[7];
+			int zero = 0;
+			err |= clEnqueueFillBuffer(commands, pathFlagD, &zero, sizeof(zero), 0, DPMatrixSize * sizeof(char), 0, NULL, &fillEvents[0]);
+			err |= clEnqueueFillBuffer(commands, extFlagD, &zero, sizeof(zero), 0, DPMatrixSize * sizeof(char), 0, NULL, &fillEvents[1]);
+			err |= clEnqueueFillBuffer(commands, nGapDistD, &zero, sizeof(zero), 0, matrixIniNum * sizeof(float), 0, NULL, &fillEvents[2]);
+			err |= clEnqueueFillBuffer(commands, hGapDistD, &zero, sizeof(zero), 0, matrixIniNum * sizeof(float), 0, NULL, &fillEvents[3]);
+			err |= clEnqueueFillBuffer(commands, vGapDistD, &zero, sizeof(zero), 0, matrixIniNum * sizeof(float), 0, NULL, &fillEvents[4]);
+			err |= clEnqueueFillBuffer(commands, maxInfoD, &zero, sizeof(zero), 0, sizeof(MAX_INFO) * mfThreadNum, 0, NULL, &fillEvents[5]);
+			err |= clEnqueueFillBuffer(commands, mutexMem, &zero, sizeof(zero), 0, sizeof(int), 0, NULL, &fillEvents[6]);
 			clFinish(commands);
 			LSB_Rec(0);
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-				LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-			LSB_Res();
-			err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&extFlagD);
-			LSB_Rec(0);
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
-			clFinish(commands);
-			LSB_Rec(0);
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-				CHKERR(err, "Initialize flag matrice");
-
-			arraySize = matrixIniNum * sizeof(float);
-			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-			LSB_Res();
-			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&nGapDistD);
-			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-			LSB_Rec(0);
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
-			clFinish(commands);
-			LSB_Rec(0);
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-
-				LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-			LSB_Res();
-			err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&hGapDistD);
-			LSB_Rec(0);
-
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
-			clFinish(commands);
-			LSB_Rec(0);
-
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-
-				LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-			LSB_Res();
-			err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&vGapDistD);
-			LSB_Rec(0);
-
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
-			clFinish(commands);
-			LSB_Rec(0);
-
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-				CHKERR(err, "Initialize dist matrice");
-
-			arraySize = sizeof(MAX_INFO) * mfThreadNum;
-			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-			LSB_Res();
-			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&maxInfoD);
-			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-			LSB_Rec(0);
-
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
-			clFinish(commands);
-			LSB_Rec(0);
-
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-				CHKERR(err, "Initialize max info");
-
-			arraySize = sizeof(int);
-			setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
-
-			LSB_Set_Rparam_string("region", "setting_hSetZeroKernel_arguments");
-			LSB_Res();
-			err = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&mutexMem);
-			err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-			LSB_Rec(0);
-
-			LSB_Set_Rparam_string("region", "hSetZeroKernel_kernel");
-			LSB_Res();
-
-			err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
-			clFinish(commands);
-			LSB_Rec(0);
-			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
-				END_TIMER(ocdTempTimer)
-				CHKERR(err, "Initialize mutex variable");
+			START_TIMER(fillEvents[0], OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			START_TIMER(fillEvents[1], OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			START_TIMER(fillEvents[2], OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			START_TIMER(fillEvents[3], OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			START_TIMER(fillEvents[4], OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			START_TIMER(fillEvents[5], OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			START_TIMER(fillEvents[6], OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			CHKERR(err, "Zero matrices");
 
 			LSB_Set_Rparam_string("region", "device_side_h2d_copy");
 			LSB_Res();
