@@ -427,6 +427,7 @@ int main(int argc, char ** argv)
 	struct timeval startTime, currentTime, elapsed;
 	gettimeofday(&startTime, NULL);
 	do {
+		LSB_Set_Rparam_int("repeats_to_two_seconds", lsb_timing_repeats); 
 		//get the larger and smaller of the row and colum number
 		int subSequenceNo, launchNum, launchNo;
 		int rowNum, columnNum, matrixIniNum;
