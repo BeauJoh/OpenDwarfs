@@ -119,6 +119,7 @@ nqueens = {'name':'nqueens',
            'small':'18'}
 swat = {'name':'swat',
         'alias':'swat',
+        'small':'../test/dynamic-programming/swat/query1K1 ../test/dynamic-programming/swat/sampledb1K1',
         'default':'../test/dynamic-programming/swat/query1K1 ../test/dynamic-programming/swat/sampledb1K1',
         'full name':'Smith-Waterman'}
 cfd = {'name':'cfd',
