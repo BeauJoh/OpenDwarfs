@@ -11,5 +11,5 @@
 cd ~/OpenDwarfs/build-$DEVICE/;
 echo "issuing... $APPLICATION to $DEVICE with id $DEVICE_ID and $SIZE for $ITERATIONS" &>> ~/mine-boss.log
 #make 2>&1 make.log;
-python ./opendwarf_miner.py $DEVICE_ID $APPLICATION $SIZE $ITERATIONS > miner.log
+python2 ./opendwarf_miner.py $DEVICE_ID $APPLICATION $SIZE $ITERATIONS > miner.log
 

@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#/usr/bin/env python2
 from opendwarf_miner_utils import *
 
 exec(open('../opendwarf_application_parameters.py').read())
@@ -41,8 +41,8 @@ if socket.gethostname() == "node03":
     device_parameters = GenerateDeviceParameters(0,0,2)#knights landing
 
 if socket.gethostname() == "node33":
-    device_name = "firepro_s9150"
-    device_parameters = GenerateDeviceParameters(0,0,1)#firepro s9150
+    device_name = "firepro-s9150"
+    device_parameters = GenerateDeviceParameters(0,0,0)#firepro s9150
 
 if socket.gethostname() == "node01":
     device_name = "xeon_es-2697v2"
@@ -78,6 +78,40 @@ if socket.gethostname() == "whale":
     else:
         device_name = "gold-6134"
         device_parameters = GenerateDeviceParameters(1,0,0)#xeon gold on whale
+
+if socket.gethostname() == "node30":
+    if selected_device == 0:
+        device_name = "tahiti-hd7970"
+        device_parameters = GenerateDeviceParameters(0,0,0)#hd7970
+    elif selected_device == 1:
+        device_name = "hawaii-r9-295x2"
+        device_parameters = GenerateDeviceParameters(0,0,0)#r9-295x2
+    else:
+        device_name = "i5-3350"
+        device_parameters = GenerateDeviceParameters(0,1,0)#Intel(R) Core(TM) i5-3550 CPU @ 3.30GHz
+
+if socket.gethostname() == "node31":
+    if selected_device == 0:
+        device_name = "fiji-furyx"
+        device_parameters = GenerateDeviceParameters(0,0,0)#hd7970
+    elif selected_device == 1:
+        device_name = "hawaii-r9-290x"
+        device_parameters = GenerateDeviceParameters(0,0,0)#r9-295x2
+    else:
+        device_name = "i5-3350"
+        device_parameters = GenerateDeviceParameters(0,1,0)#Intel(R) Core(TM) i5-3550 CPU @ 3.30GHz
+
+
+
+if socket.gethostname() == "node32":
+    if selected_device == 0:
+        device_name = "polaris-rx480"
+        device_parameters = GenerateDeviceParameters(0,0,0)#hd7970
+    else:
+        device_name = "i5-3350"
+        device_parameters = GenerateDeviceParameters(0,1,1)#Intel(R) Core(TM) i5-3550 CPU @ 3.30GHz
+
+
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
