@@ -71,6 +71,13 @@ if socket.gethostname() == "node02":
     else:
         device_name = "a10-780k"
         device_parameters = GenerateDeviceParameters(0,1,1)#AMD A10-7850K Radeon R7
+if socket.gethostname() == "whale":
+    if selected_device == 0:
+        device_name = "p100"
+        device_parameters = GenerateDeviceParameters(0,0,1)#P100
+    else:
+        device_name = "gold-6134"
+        device_parameters = GenerateDeviceParameters(1,0,0)#xeon gold on whale
 
 #Sample usage of utils:
 #RunDwarf(dense_linear_algebra,cpu_parameters)
