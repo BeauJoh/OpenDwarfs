@@ -5,10 +5,10 @@ exec(open('../opendwarf_application_parameters.py').read())
 #execfile('../opendwarf_application_parameters.py')
 
 from sys import argv,exit
-selected_device = 0
+selected_device = 0 
 selected_applications = None
 selected_problem_sizes = ['tiny',
-                          'small',
+                          #'small',
                           #'medium',
                           #'large',
                           ]
@@ -71,6 +71,7 @@ if socket.gethostname() == "node02":
     else:
         device_name = "a10-780k"
         device_parameters = GenerateDeviceParameters(0,1,1)#AMD A10-7850K Radeon R7
+
 if socket.gethostname() == "whale":
     if selected_device == 0:
         device_name = "p100"
@@ -220,24 +221,28 @@ selected_papi_envs.extend([x for x in papi_envs if x['name'] == 'time'])
 
 if selected_applications == None:
     selected_applications = [
-                             kmeans,
-                             lud,
-                             csr,
-                             fft,
-                             dwt,
-                             gem,
-                             srad,
-                             crc,
-                             bfs,
-                             nw,
-                             hmm,
-                             nqueens,
+                             ##all problem sizes:
+                             #kmeans,
+                             #lud,
+                             #csr,
+                             #fft,
+                             #srad,
+                             #crc,
+                             #bfs,
+                             #nw,
+                             dwt,# <- debug, broken on the gold?
+                             ##small problem size only:
+                             #gem,
+                             #nqueens,
+                             #hmm,
+                             #swat,
                             ]
 else:
     exec("%s = [%s]"%("selected_applications",selected_applications))
 
 #selected_applications = [kmeans_coarse_iteration_profile]#kmeans]
 #selected_applications = [fft]#csr,kmeans]
+#selected_applications = [swat]
 #selected_applications.extend(dense_linear_algebra)
 
 #if running the whole list of dwarfs, we need to flatten the list first
