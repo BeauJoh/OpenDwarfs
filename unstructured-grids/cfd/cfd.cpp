@@ -284,6 +284,10 @@ int main(int argc, char** argv)
 	cl_mem normals;
 	{
 		std::ifstream file(data_file_name);
+    if (!file.is_open()) {
+      std::cerr << "Unable to open file " << data_file_name << std::endl;
+      exit(2);
+    }
 
 		file >> nel;
 
