@@ -118,7 +118,7 @@ void rgbToComponents(cl_mem d_r, cl_mem d_g, cl_mem d_b, unsigned char * h_src, 
     CHKERR(errNum, "Failed to write to buffer [cl_d_src]!");
     LSB_Rec(0);
 
-    size_t globalWorkSize[1] = {alignedSize};
+    size_t globalWorkSize[1] = {static_cast<size_t>(alignedSize)};
     size_t localWorkSize[1] = { THREADS };
 
     LSB_Set_Rparam_string("region", "setting_c_CopySrcToComponents_kernel_arguments");
@@ -160,7 +160,7 @@ void bwToComponent(cl_mem d_c, unsigned char * h_src, int width, int height)
     CHKERR(errNum, "Failed to create buffer [cl_d_src]!");
     LSB_Rec(0);
 
-    size_t globalWorkSize[1] = { alignedSize };
+    size_t globalWorkSize[1] = { static_cast<size_t>(alignedSize) };
     size_t localWorkSize[1] = { THREADS };
     assert(alignedSize%(THREADS) == 0);
 
@@ -208,8 +208,8 @@ void launchFDWT53Kernel (int WIN_SX, int WIN_SY, cl_mem in, cl_mem out, int sx, 
 	printf("sliding steps = %d , gx = %d , gy = %d \n", steps, gx, gy);
 	
     // prepare grid size
-	size_t globalWorkSize[2] = { gx*WIN_SX, gy*1};
-    size_t localWorkSize[2]  = { WIN_SX , 1};
+	size_t globalWorkSize[2] = { static_cast<size_t>(gx*WIN_SX), static_cast<size_t>(gy*1)};
+    size_t localWorkSize[2]  = { static_cast<size_t>(WIN_SX), 1};
 
     // printf("\n globalx=%d, globaly=%d, blocksize=%d\n", gx, gy, WIN_SX);
     LSB_Set_Rparam_string("region", "setting_kl_fdwt53Kernel_kernel_arguments");

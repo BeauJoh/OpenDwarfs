@@ -598,7 +598,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 					CHKERR(err, "Error in writing m_ParamBuffer");
 					//CHECK_ERROR(err);
 
-					size_t work_dim[1] = { m_SolverInfo[device_idx].m_bEnableVectorize ? m_SolverInfo[device_idx].m_nThreads / vec_size : m_SolverInfo[device_idx].m_nThreads };
+					size_t work_dim[1] = {static_cast<size_t>( m_SolverInfo[device_idx].m_bEnableVectorize ? m_SolverInfo[device_idx].m_nThreads / vec_size : m_SolverInfo[device_idx].m_nThreads) };
 					size_t* group_dim = 0;
 					size_t n = m_SolverInfo[device_idx].m_nMaxWorkItems / vec_size;
 //					if(m_bForceLocal) {

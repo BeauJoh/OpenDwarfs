@@ -535,8 +535,8 @@ void calc_potential_single_step(residue *residues,
 
         //cl_int   status;
         cl_uint maxDims;
-        size_t globalThreads[2] = { BLOCK_DIM_X * BLOCK_DIM_Y, BLOCKS };
-        size_t localThreads[2]  = { BLOCK_DIM_X * BLOCK_DIM_Y, 1 };
+        size_t globalThreads[2] = { static_cast<size_t>(BLOCK_DIM_X * BLOCK_DIM_Y), BLOCKS };
+        size_t localThreads[2]  = { static_cast<size_t>(BLOCK_DIM_X * BLOCK_DIM_Y), 1 };
         size_t maxWorkGroupSize;
 
 
